@@ -1,6 +1,6 @@
 import type {
-  LanguageModelV1Prompt,
-  LanguageModelV1ProviderMetadata,
+  LanguageModelV2Prompt,
+  LanguageModelV2ProviderMetadata,
 } from "@ai-sdk/provider"
 import type { QwenChatPrompt } from "./qwen-api-types"
 import {
@@ -18,7 +18,7 @@ import { convertUint8ArrayToBase64 } from "@ai-sdk/provider-utils"
  */
 
 function getQwenMetadata(message: {
-  providerMetadata?: LanguageModelV1ProviderMetadata
+  providerMetadata?: LanguageModelV2ProviderMetadata
 }) {
   return message?.providerMetadata?.qwen ?? {}
 }
@@ -30,7 +30,7 @@ function getQwenMetadata(message: {
  * @returns An array of Qwen chat messages.
  */
 export function convertToQwenChatMessages(
-  prompt: LanguageModelV1Prompt,
+  prompt: LanguageModelV2Prompt,
 ): QwenChatPrompt {
   const messages: QwenChatPrompt = []
   // Iterate over each prompt message.

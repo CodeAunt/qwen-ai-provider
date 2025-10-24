@@ -280,7 +280,7 @@ implements LanguageModelV1 {
       },
       finishReason: mapQwenFinishReason(choice.finish_reason),
       rawCall: { rawPrompt, rawSettings },
-      rawResponse: { headers: responseHeaders },
+      response: { headers: responseHeaders },
       response: getResponseMetadata(response),
       warnings,
       request: { body: JSON.stringify(args) },
@@ -395,7 +395,7 @@ implements LanguageModelV1 {
         }),
       ),
       rawCall: { rawPrompt, rawSettings },
-      rawResponse: { headers: responseHeaders },
+      response: { headers: responseHeaders },
       warnings,
       request: { body: JSON.stringify(body) },
     }

@@ -94,7 +94,7 @@ implements EmbeddingModelV1<string> {
    * @returns A promise that resolves with an object containing:
    *   - embeddings: An array of embedding arrays.
    *   - usage: Optional usage information, including token counts.
-   *   - rawResponse: The response headers from the API call.
+   *   - response: The response headers from the API call.
    *
    * @throws TooManyEmbeddingValuesForCallError if the number of input values exceeds the maximum allowed.
    */
@@ -147,7 +147,7 @@ implements EmbeddingModelV1<string> {
       usage: response.usage
         ? { tokens: response.usage.prompt_tokens }
         : undefined,
-      rawResponse: { headers: responseHeaders },
+      response: { headers: responseHeaders },
     }
   }
 }

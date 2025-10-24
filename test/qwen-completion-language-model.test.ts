@@ -217,13 +217,13 @@ describe("doGenerate", () => {
       "test-header": "test-value",
     }
 
-    const { rawResponse } = await model.doGenerate({
+    const { response } = await model.doGenerate({
       inputFormat: "prompt",
       mode: { type: "regular" },
       prompt: TEST_PROMPT,
     })
 
-    expect(rawResponse?.headers).toStrictEqual({
+    expect(response?.headers).toStrictEqual({
       // default headers:
       "content-length": "237",
       "content-type": "application/json",
@@ -440,13 +440,13 @@ describe("doStream", () => {
       "test-header": "test-value",
     }
 
-    const { rawResponse } = await model.doStream({
+    const { response } = await model.doStream({
       inputFormat: "prompt",
       mode: { type: "regular" },
       prompt: TEST_PROMPT,
     })
 
-    expect(rawResponse?.headers).toStrictEqual({
+    expect(response?.headers).toStrictEqual({
       // default headers:
       "content-type": "text/event-stream",
       "cache-control": "no-cache",

@@ -1,10 +1,10 @@
 import type {
   APICallError,
-  LanguageModelV1,
-  LanguageModelV1CallWarning,
-  LanguageModelV1FinishReason,
-  LanguageModelV1ObjectGenerationMode,
-  LanguageModelV1StreamPart,
+  LanguageModelV2,
+  LanguageModelV2CallWarning,
+  LanguageModelV2FinishReason,
+  LanguageModelV2ObjectGenerationMode,
+  LanguageModelV2StreamPart,
 } from "@ai-sdk/provider"
 import type {
   FetchFunction,
@@ -57,7 +57,7 @@ export interface QwenChatConfig {
   no mode is specified. Should be the mode with the best results for this
   model. `undefined` can be specified if object generation is not supported.
    */
-  defaultObjectGenerationMode?: LanguageModelV1ObjectGenerationMode
+  defaultObjectGenerationMode?: LanguageModelV2ObjectGenerationMode
 
   /**
    * Whether the model supports structured outputs.
@@ -103,10 +103,10 @@ const QwenChatResponseSchema = z.object({
 
 /**
  * Class representing the Qwen Chat language model.
- * Implements LanguageModelV1 providing text generation and streaming.
+ * Implements LanguageModelV2 providing text generation and streaming.
  */
 /**
- * A language model implementation for Qwen Chat API that follows the LanguageModelV1 interface.
+ * A language model implementation for Qwen Chat API that follows the LanguageModelV2 interface.
  * Handles both regular text generation and structured outputs through various modes.
  *
  * @param options.mode - The generation mode configuration that determines how the model generates responses:
@@ -125,8 +125,8 @@ const QwenChatResponseSchema = z.object({
  * @param options.responseFormat - Specifies the desired format of the response (e.g. JSON)
  * @param options.seed - Random seed for deterministic generation
  */
-export class QwenChatLanguageModel implements LanguageModelV1 {
-  readonly specificationVersion = "v1"
+export class QwenChatLanguageModel implements LanguageModelV2 {
+  readonly specificationVersion = "v2"
 
   readonly supportsStructuredOutputs: boolean
 
@@ -136,6 +136,9 @@ export class QwenChatLanguageModel implements LanguageModelV1 {
   private readonly config: QwenChatConfig
   private readonly failedResponseHandler: ResponseHandler<APICallError>
   private readonly chunkSchema // type inferred via constructor
+  readonly supportedUrls: Record<string, RegExp[]> | PromiseLike<Record<string, RegExp[]>> = {
+    // todo
+  };
 
   /**
    * Constructs a new QwenChatLanguageModel.
@@ -154,7 +157,7 @@ export class QwenChatLanguageModel implements LanguageModelV1 {
 
     // Initialize error handling using provided or default error structure.
     const errorStructure
-        = config.errorStructure ?? defaultQwenErrorStructure
+      = config.errorStructure ?? defaultQwenErrorStructure
     this.chunkSchema = createQwenChatChunkSchema(
       errorStructure.errorSchema,
     )
@@ -211,22 +214,22 @@ export class QwenChatLanguageModel implements LanguageModelV1 {
    */
   private getArgs({
     mode,
-      prompt,
-      maxTokens,
-      temperature,
-      topP,
-      topK,
-      frequencyPenalty,
-      presencePenalty,
-      providerMetadata,
-      stopSequences,
-      responseFormat,
-      seed,
-  }: Parameters<LanguageModelV1["doGenerate"]>[0]) {
+    prompt,
+    maxTokens,
+    temperature,
+    topP,
+    topK,
+    frequencyPenalty,
+    presencePenalty,
+    providerMetadata,
+    stopSequences,
+    responseFormat,
+    seed,
+  }: Parameters<LanguageModelV2["doGenerate"]>[0]) {
     // Determine the type of generation mode.
     const type = mode.type
 
-    const warnings: LanguageModelV1CallWarning[] = []
+    const warnings: LanguageModelV2CallWarning[] = []
 
     // Warn if unsupported settings are used:
     if (topK != null) {
@@ -245,7 +248,7 @@ export class QwenChatLanguageModel implements LanguageModelV1 {
         type: "unsupported-setting",
         setting: "responseFormat",
         details:
-            "JSON response format schema is only supported with structuredOutputs",
+          "JSON response format schema is only supported with structuredOutputs",
       })
     }
 
@@ -263,19 +266,19 @@ export class QwenChatLanguageModel implements LanguageModelV1 {
       frequency_penalty: frequencyPenalty,
       presence_penalty: presencePenalty,
       response_format:
-          responseFormat?.type === "json"
-            ? this.supportsStructuredOutputs === true
+        responseFormat?.type === "json"
+          ? this.supportsStructuredOutputs === true
             && responseFormat.schema != null
-              ? {
-                  type: "json_schema",
-                  json_schema: {
-                    schema: responseFormat.schema,
-                    name: responseFormat.name ?? "response",
-                    description: responseFormat.description,
-                  },
-                }
-              : { type: "json_object" }
-            : undefined,
+            ? {
+              type: "json_schema",
+              json_schema: {
+                schema: responseFormat.schema,
+                name: responseFormat.name ?? "response",
+                description: responseFormat.description,
+              },
+            }
+            : { type: "json_object" }
+          : undefined,
 
       stop: stopSequences,
       seed,
@@ -304,16 +307,16 @@ export class QwenChatLanguageModel implements LanguageModelV1 {
           args: {
             ...baseArgs,
             response_format:
-                this.supportsStructuredOutputs === true && mode.schema != null
-                  ? {
-                      type: "json_schema",
-                      json_schema: {
-                        schema: mode.schema,
-                        name: mode.name ?? "response",
-                        description: mode.description,
-                      },
-                    }
-                  : { type: "json_object" },
+              this.supportsStructuredOutputs === true && mode.schema != null
+                ? {
+                  type: "json_schema",
+                  json_schema: {
+                    schema: mode.schema,
+                    name: mode.name ?? "response",
+                    description: mode.description,
+                  },
+                }
+                : { type: "json_object" },
           },
           warnings,
         }
@@ -355,8 +358,8 @@ export class QwenChatLanguageModel implements LanguageModelV1 {
    * @returns A promise resolving with the generation result.
    */
   async doGenerate(
-    options: Parameters<LanguageModelV1["doGenerate"]>[0],
-  ): Promise<Awaited<ReturnType<LanguageModelV1["doGenerate"]>>> {
+    options: Parameters<LanguageModelV2["doGenerate"]>[0],
+  ): Promise<Awaited<ReturnType<LanguageModelV2["doGenerate"]>>> {
     const { args, warnings } = this.getArgs({ ...options })
 
     const body = JSON.stringify(args)
@@ -404,7 +407,7 @@ export class QwenChatLanguageModel implements LanguageModelV1 {
       },
       ...(providerMetadata && { providerMetadata }),
       rawCall: { rawPrompt, rawSettings },
-      rawResponse: { headers: responseHeaders },
+      response: { headers: responseHeaders },
       response: getResponseMetadata(responseBody),
       warnings,
       request: { body },
@@ -417,12 +420,12 @@ export class QwenChatLanguageModel implements LanguageModelV1 {
    * @returns A promise resolving with the stream and additional metadata.
    */
   async doStream(
-    options: Parameters<LanguageModelV1["doStream"]>[0],
-  ): Promise<Awaited<ReturnType<LanguageModelV1["doStream"]>>> {
+    options: Parameters<LanguageModelV2["doStream"]>[0],
+  ): Promise<Awaited<ReturnType<LanguageModelV2["doStream"]>>> {
     if (this.settings.simulateStreaming) {
       // Simulate streaming by generating a full response and splitting it.
       const result = await this.doGenerate(options)
-      const simulatedStream = new ReadableStream<LanguageModelV1StreamPart>({
+      const simulatedStream = new ReadableStream<LanguageModelV2StreamPart>({
         start(controller) {
           // Send metadata then text deltas.
           controller.enqueue({ type: "response-metadata", ...result.response })
@@ -462,7 +465,7 @@ export class QwenChatLanguageModel implements LanguageModelV1 {
       return {
         stream: simulatedStream,
         rawCall: result.rawCall,
-        rawResponse: result.rawResponse,
+        response: result.response,
         warnings: result.warnings,
       }
     }
@@ -480,7 +483,7 @@ export class QwenChatLanguageModel implements LanguageModelV1 {
     // Set stream flag to true for the API.
     const body = JSON.stringify(requestBody)
     const metadataExtractor
-        = this.config.metadataExtractor?.createStreamExtractor()
+      = this.config.metadataExtractor?.createStreamExtractor()
 
     const { responseHeaders, value: response } = await postJsonToApi({
       url: this.config.url({
@@ -509,7 +512,7 @@ export class QwenChatLanguageModel implements LanguageModelV1 {
       hasFinished: boolean
     }> = []
 
-    let finishReason: LanguageModelV1FinishReason = "unknown"
+    let finishReason: LanguageModelV2FinishReason = "unknown"
     let usage: {
       promptTokens: number | undefined
       completionTokens: number | undefined
@@ -523,7 +526,7 @@ export class QwenChatLanguageModel implements LanguageModelV1 {
       stream: response.pipeThrough(
         new TransformStream<
           ParseResult<z.infer<typeof this.chunkSchema>>,
-          LanguageModelV1StreamPart
+          LanguageModelV2StreamPart
         >({
           // Transforms incoming chunks and maps them to stream parts.
           transform(chunk, controller) {
@@ -667,7 +670,7 @@ export class QwenChatLanguageModel implements LanguageModelV1 {
 
                 if (toolCallDelta.function?.arguments != null) {
                   toolCall.function!.arguments
-                      += toolCallDelta.function?.arguments ?? ""
+                    += toolCallDelta.function?.arguments ?? ""
                 }
 
                 controller.enqueue({
@@ -712,7 +715,7 @@ export class QwenChatLanguageModel implements LanguageModelV1 {
         }),
       ),
       rawCall: { rawPrompt, rawSettings },
-      rawResponse: { headers: responseHeaders },
+      response: { headers: responseHeaders },
       warnings,
       request: { body },
     }
