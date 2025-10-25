@@ -1,7 +1,7 @@
 import type { EmbeddingModelV1Embedding } from "@ai-sdk/provider"
 import { JsonTestServer } from "@ai-sdk/provider-utils/test"
 import { describe, expect, it } from "vitest"
-import { createQwen } from "./qwen-provider"
+import { createQwen } from "../src/qwen-provider"
 
 const dummyEmbeddings = [
   [0.1, 0.2, 0.3, 0.4, 0.5],

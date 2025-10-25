@@ -109,9 +109,19 @@ When you generate this migration checklist, you must IMMEDIATELY:
 
 ## Phase 4: Critical Foundation Changes
 
-**Complete these sections before moving to Phase 5.**
+**PROVIDER NOTE**: This is a provider package, so Phases 4-6 focus on provider-side implementation, not UI messages.
 
-### 4.1 Define Custom UIMessage Type (Optional but Recommended)
+### 4.1 Provider Interface Migration
+- [x] **ACTION**: Update chat model from LanguageModelV1 to LanguageModelV2
+- [x] **ACTION**: Update return format to use content array instead of text/reasoningText/toolCalls
+- [x] **ACTION**: Add totalTokens to usage object
+- [x] **ACTION**: Update providerMetadata/providerOptions naming
+- [x] **ACTION**: Fix tool call structure (args → input, result → output)
+- [x] **ACTION**: Update file/image part handling
+- [x] **ACTION**: Update streaming format (textDelta → delta with id)
+- [x] **INFO**: Chat model migrated successfully
+
+### 4.2 Define Custom UIMessage Type (Optional but Recommended - N/A for providers)
 
 **⚠️ HIGHLY RECOMMENDED FOR TYPE SAFETY ⚠️**
 

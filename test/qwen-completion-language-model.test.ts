@@ -6,8 +6,8 @@ import {
   StreamingTestServer,
 } from "@ai-sdk/provider-utils/test"
 import { describe, expect, it } from "vitest"
-import { QwenChatLanguageModel } from "./qwen-chat-language-model"
-import { createQwen } from "./qwen-provider"
+import { QwenChatLanguageModel } from "../src/qwen-chat-language-model"
+import { createQwen } from "../src/qwen-provider"
 
 const TEST_PROMPT: LanguageModelV1Prompt = [
   { role: "user", content: [{ type: "text", text: "Hello" }] },
