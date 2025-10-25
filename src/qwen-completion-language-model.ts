@@ -1,9 +1,9 @@
 import type {
   APICallError,
-  LanguageModelV1,
-  LanguageModelV1CallWarning,
-  LanguageModelV1FinishReason,
-  LanguageModelV1StreamPart,
+  LanguageModelV2,
+  LanguageModelV2CallWarning,
+  LanguageModelV2FinishReason,
+  LanguageModelV2StreamPart,
 } from "@ai-sdk/provider"
 import type {
   FetchFunction,
@@ -148,7 +148,7 @@ implements LanguageModelV1 {
     mode,
       inputFormat,
       prompt,
-      maxTokens,
+      maxOutputTokens,
       temperature,
       topP,
       topK,
@@ -157,7 +157,7 @@ implements LanguageModelV1 {
       stopSequences: userStopSequences,
       responseFormat,
       seed,
-      providerMetadata,
+      providerOptions,
   }: Parameters<LanguageModelV1["doGenerate"]>[0]) {
     const type = mode.type
 
@@ -199,7 +199,7 @@ implements LanguageModelV1 {
       frequency_penalty: frequencyPenalty,
       presence_penalty: presencePenalty,
       seed,
-      ...providerMetadata?.[this.providerOptionsName],
+      ...providerOptions?.[this.providerOptionsName],
       // Prompt and stop sequences:
       prompt: completionPrompt,
       stop: stop.length > 0 ? stop : undefined,
@@ -275,8 +275,8 @@ implements LanguageModelV1 {
     return {
       text: choice.text,
       usage: {
-        promptTokens: response.usage?.prompt_tokens ?? Number.NaN,
-        completionTokens: response.usage?.completion_tokens ?? Number.NaN,
+        inputTokens: response.usage?.prompt_tokens ?? Number.NaN,
+        outputTokens: response.usage?.completion_tokens ?? Number.NaN,
       },
       finishReason: mapQwenFinishReason(choice.finish_reason),
       rawCall: { rawPrompt, rawSettings },
@@ -284,7 +284,7 @@ implements LanguageModelV1 {
       response: getResponseMetadata(response),
       warnings,
       request: { body: JSON.stringify(args) },
-    }
+    };
   }
 
   /**
@@ -322,8 +322,8 @@ implements LanguageModelV1 {
 
     let finishReason: LanguageModelV1FinishReason = "unknown"
     let usage: { promptTokens: number, completionTokens: number } = {
-      promptTokens: Number.NaN,
-      completionTokens: Number.NaN,
+      inputTokens: Number.NaN,
+      outputTokens: Number.NaN,
     }
     let isFirstChunk = true
 
@@ -362,8 +362,8 @@ implements LanguageModelV1 {
 
             if (value.usage != null) {
               usage = {
-                promptTokens: value.usage.prompt_tokens,
-                completionTokens: value.usage.completion_tokens,
+                inputTokens: value.usage.prompt_tokens,
+                outputTokens: value.usage.completion_tokens,
               }
             }
 
@@ -398,7 +398,7 @@ implements LanguageModelV1 {
       response: { headers: responseHeaders },
       warnings,
       request: { body: JSON.stringify(body) },
-    }
+    };
   }
 }
 

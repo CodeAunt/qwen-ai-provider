@@ -169,7 +169,7 @@ describe("doGenerate", () => {
       reasoning_content: "This is the reasoning behind the response",
     })
 
-    const { text, reasoning } = await model.doGenerate({
+    const { text, reasoningText } = await model.doGenerate({
       inputFormat: "prompt",
       mode: { type: "regular" },
       prompt: TEST_PROMPT,
@@ -194,8 +194,8 @@ describe("doGenerate", () => {
     })
 
     expect(usage).toStrictEqual({
-      promptTokens: 20,
-      completionTokens: 5,
+      inputTokens: 20,
+      outputTokens: 5,
     })
   })
 
@@ -232,8 +232,8 @@ describe("doGenerate", () => {
     })
 
     expect(usage).toStrictEqual({
-      promptTokens: 20,
-      completionTokens: Number.NaN,
+      inputTokens: 20,
+      outputTokens: Number.NaN,
     })
   })
 
@@ -329,7 +329,7 @@ describe("doGenerate", () => {
     await provider("qwen-chat").doGenerate({
       inputFormat: "prompt",
       mode: { type: "regular" },
-      providerMetadata: {
+      providerOptions: {
         "test-provider": {
           someCustomOption: "test-value",
         },
@@ -349,7 +349,7 @@ describe("doGenerate", () => {
     await provider("qwen-chat").doGenerate({
       inputFormat: "prompt",
       mode: { type: "regular" },
-      providerMetadata: {
+      providerOptions: {
         notThisProviderName: {
           someCustomOption: "test-value",
         },
@@ -804,7 +804,7 @@ describe("doGenerate", () => {
             type: "function",
             name: "test-tool",
             description: "test description",
-            parameters: {
+            inputSchema: {
               type: "object",
               properties: { value: { type: "string" } },
               required: ["value"],
@@ -826,7 +826,7 @@ describe("doGenerate", () => {
             function: {
               name: "test-tool",
               description: "test description",
-              parameters: {
+              inputSchema: {
                 type: "object",
                 properties: { value: { type: "string" } },
                 required: ["value"],
@@ -924,7 +924,7 @@ describe("doStream", () => {
       {
         type: "finish",
         finishReason: "stop",
-        usage: { promptTokens: 18, completionTokens: 439 },
+        usage: { inputTokens: 18, outputTokens: 439 },
       },
     ])
   })
@@ -977,7 +977,7 @@ describe("doStream", () => {
       {
         type: "finish",
         finishReason: "stop",
-        usage: { promptTokens: 18, completionTokens: 439 },
+        usage: { inputTokens: 18, outputTokens: 439 },
       },
     ])
   })
@@ -1103,7 +1103,7 @@ describe("doStream", () => {
       {
         type: "finish",
         finishReason: "tool-calls",
-        usage: { promptTokens: 18, completionTokens: 439 },
+        usage: { inputTokens: 18, outputTokens: 439 },
       },
     ])
   })
@@ -1236,7 +1236,7 @@ describe("doStream", () => {
       {
         type: "finish",
         finishReason: "tool-calls",
-        usage: { promptTokens: 18, completionTokens: 439 },
+        usage: { inputTokens: 18, outputTokens: 439 },
       },
     ])
   })
@@ -1358,7 +1358,7 @@ describe("doStream", () => {
       {
         type: "finish",
         finishReason: "tool-calls",
-        usage: { promptTokens: 226, completionTokens: 20 },
+        usage: { inputTokens: 226, outputTokens: 20 },
       },
     ])
   })
@@ -1421,7 +1421,7 @@ describe("doStream", () => {
       {
         type: "finish",
         finishReason: "tool-calls",
-        usage: { promptTokens: 18, completionTokens: 439 },
+        usage: { inputTokens: 18, outputTokens: 439 },
       },
     ])
   })
@@ -1443,8 +1443,8 @@ describe("doStream", () => {
       finishReason: "error",
       type: "finish",
       usage: {
-        completionTokens: Number.NaN,
-        promptTokens: Number.NaN,
+        outputTokens: Number.NaN,
+        inputTokens: Number.NaN,
       },
     })
   })
@@ -1528,7 +1528,7 @@ describe("doStream", () => {
     await provider("qwen-chat").doStream({
       inputFormat: "prompt",
       mode: { type: "regular" },
-      providerMetadata: {
+      providerOptions: {
         "test-provider": {
           someCustomOption: "test-value",
         },
@@ -1552,7 +1552,7 @@ describe("doStream", () => {
     await provider("qwen-chat").doStream({
       inputFormat: "prompt",
       mode: { type: "regular" },
-      providerMetadata: {
+      providerOptions: {
         notThisProviderName: {
           someCustomOption: "test-value",
         },
@@ -1670,9 +1670,9 @@ describe("doStream simulated streaming", () => {
       {
         type: "finish",
         finishReason: "stop",
-        usage: { promptTokens: 4, completionTokens: 30 },
+        usage: { inputTokens: 4, outputTokens: 30 },
         logprobs: undefined,
-        providerMetadata: undefined,
+        providerOptions: undefined,
       },
     ])
   })
@@ -1712,9 +1712,9 @@ describe("doStream simulated streaming", () => {
       {
         type: "finish",
         finishReason: "stop",
-        usage: { promptTokens: 4, completionTokens: 30 },
+        usage: { inputTokens: 4, outputTokens: 30 },
         logprobs: undefined,
-        providerMetadata: undefined,
+        providerOptions: undefined,
       },
     ])
   })
@@ -1776,9 +1776,9 @@ describe("doStream simulated streaming", () => {
       {
         type: "finish",
         finishReason: "stop",
-        usage: { promptTokens: 4, completionTokens: 30 },
+        usage: { inputTokens: 4, outputTokens: 30 },
         logprobs: undefined,
-        providerMetadata: undefined,
+        providerOptions: undefined,
       },
     ])
   })
@@ -1871,7 +1871,7 @@ describe("metadata extraction", () => {
             prompt: TEST_PROMPT,
           })
 
-          expect(result.providerMetadata).toEqual({
+          expect(result.providerOptions).toEqual({
             test: {
               value: "test_value",
             },
@@ -1921,7 +1921,7 @@ describe("metadata extraction", () => {
           const parts = await convertReadableStreamToArray(result.stream)
           const finishPart = parts.find(part => part.type === "finish")
 
-          expect(finishPart?.providerMetadata).toEqual({
+          expect(finishPart?.providerOptions).toEqual({
             test: {
               value: "test_value",
             },

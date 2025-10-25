@@ -1,5 +1,5 @@
 import type {
-  EmbeddingModelV1,
+  EmbeddingModelV2,
 } from "@ai-sdk/provider"
 import type {
   FetchFunction,
@@ -51,7 +51,7 @@ const qwenTextEmbeddingResponseSchema = z.object({
 })
 
 export class QwenEmbeddingModel
-implements EmbeddingModelV1<string> {
+implements EmbeddingModelV2<string> {
   readonly specificationVersion = "v1"
   readonly modelId: QwenEmbeddingModelId
 

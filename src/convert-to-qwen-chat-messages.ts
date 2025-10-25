@@ -1,6 +1,6 @@
 import type {
   LanguageModelV2Prompt,
-  LanguageModelV2ProviderMetadata,
+  SharedV2ProviderMetadata,
 } from "@ai-sdk/provider"
 import type { QwenChatPrompt } from "./qwen-api-types"
 import {
@@ -18,9 +18,9 @@ import { convertUint8ArrayToBase64 } from "@ai-sdk/provider-utils"
  */
 
 function getQwenMetadata(message: {
-  providerMetadata?: LanguageModelV2ProviderMetadata
+  providerOptions?: SharedV2ProviderMetadata
 }) {
-  return message?.providerMetadata?.qwen ?? {}
+  return message?.providerOptions?.qwen ?? {};
 }
 
 /**
@@ -63,26 +63,31 @@ export function convertToQwenChatMessages(
                 // Plain text conversion.
                 return { type: "text", text: part.text, ...partMetadata }
               }
-              case "image": {
-                // Convert images and encode if necessary.
-                return {
-                  type: "image_url",
-                  image_url: {
-                    url:
-                      part.image instanceof URL
-                        ? part.image.toString()
-                        : `data:${
-                          part.mimeType ?? "image/jpeg"
-                        };base64,${convertUint8ArrayToBase64(part.image)}`,
-                  },
-                  ...partMetadata,
+              case "file": {
+                // Convert files (including images) and encode if necessary.
+                // Check if it's an image file
+                if (part.mediaType?.startsWith("image/")) {
+                  // Build the data URL from the file data
+                  const url = typeof part.data === "string"
+                    ? part.data  // Already a data URL or regular URL
+                    : `data:${part.mediaType};base64,${convertUint8ArrayToBase64(part.data)}`
+                  
+                  return {
+                    type: "image_url",
+                    image_url: {
+                      url,
+                    },
+                    ...partMetadata,
+                  };
                 }
+                // For non-image files, throw unsupported error
+                throw new UnsupportedFunctionalityError({
+                  functionality: "Non-image file content parts in user messages",
+                })
               }
               default: {
-                // Unsupported file content parts trigger an error.
-                throw new UnsupportedFunctionalityError({
-                  functionality: "File content parts in user messages",
-                })
+                const _exhaustiveCheck: never = part
+                throw new Error(`Unsupported part type: ${_exhaustiveCheck}`)
               }
             }
           }),
@@ -116,16 +121,20 @@ export function convertToQwenChatMessages(
                 type: "function",
                 function: {
                   name: part.toolName,
-                  arguments: JSON.stringify(part.args),
+                  arguments: JSON.stringify(part.input),
                 },
                 ...partMetadata,
               })
               break
             }
-            case "file": // Add cases in v5
-            case "reasoning":
-            case "redacted-reasoning": {
-              // Ignore or handle these part types as needed
+            case "reasoning": {
+              // Treat reasoning as text
+              text += part.text
+              break
+            }
+            case "file":
+            case "tool-result": {
+              // These types should not appear in assistant messages
               throw new UnsupportedFunctionalityError({
                 functionality: `${part.type} content parts in assistant messages`,
               })
@@ -149,13 +158,13 @@ export function convertToQwenChatMessages(
       }
 
       case "tool": {
-        // Process tool responses by converting result to JSON string.
+        // Process tool responses by converting output to JSON string.
         for (const toolResponse of content) {
           const toolResponseMetadata = getQwenMetadata(toolResponse)
           messages.push({
             role: "tool",
             tool_call_id: toolResponse.toolCallId,
-            content: JSON.stringify(toolResponse.result),
+            content: JSON.stringify(toolResponse.output),
             ...toolResponseMetadata,
           })
         }
