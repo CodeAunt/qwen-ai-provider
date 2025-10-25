@@ -360,7 +360,7 @@ export class QwenChatLanguageModel implements LanguageModelV2 {
   async doGenerate(
     options: Parameters<LanguageModelV2["doGenerate"]>[0],
   ): Promise<Awaited<ReturnType<LanguageModelV2["doGenerate"]>>> {
-    const { args, warnings } = this.getArgs({ ...options })
+    const { args } = this.getArgs({ ...options })
 
     const body = JSON.stringify(args)
 
@@ -384,7 +384,7 @@ export class QwenChatLanguageModel implements LanguageModelV2 {
       fetch: this.config.fetch,
     })
 
-    const { messages: rawPrompt } = args
+    // const { messages: rawPrompt } = args
     const choice = responseBody.choices[0]
     const providerMetadata = this.config.metadataExtractor?.extractMetadata?.({
       parsedBody,
@@ -432,7 +432,6 @@ export class QwenChatLanguageModel implements LanguageModelV2 {
         ...getResponseMetadata(responseBody),
         headers: responseHeaders,
       },
-      warnings,
       request: { body },
     };
   }
@@ -487,7 +486,7 @@ export class QwenChatLanguageModel implements LanguageModelV2 {
       }
     }
 
-    const { args, warnings } = this.getArgs({ ...options })
+    const { args } = this.getArgs({ ...options })
 
     const requestBody = {
       ...args,
@@ -517,7 +516,7 @@ export class QwenChatLanguageModel implements LanguageModelV2 {
       fetch: this.config.fetch,
     })
 
-    const { messages: rawPrompt } = args
+    // const { messages: rawPrompt } = args
 
     const toolCalls: Array<{
       id: string

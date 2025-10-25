@@ -70,7 +70,9 @@ export function convertToQwenChatMessages(
                   // Build the data URL from the file data
                   const url = typeof part.data === "string"
                     ? part.data  // Already a data URL or regular URL
-                    : `data:${part.mediaType};base64,${convertUint8ArrayToBase64(part.data)}`
+                    : part.data instanceof Uint8Array
+                    ? `data:${part.mediaType};base64,${convertUint8ArrayToBase64(part.data)}`
+                    : part.data.toString()  // URL object
                   
                   return {
                     type: "image_url",

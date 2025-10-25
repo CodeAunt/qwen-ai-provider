@@ -179,7 +179,7 @@ export function createQwen(options: QwenProviderSettings = {}): QwenProvider {
   provider.completion = createCompletionModel
   provider.textEmbeddingModel = createTextEmbeddingModel
   provider.languageModel = createChatModel
-  return provider as QwenProvider
+  return provider as unknown as QwenProvider
 }
 
 export const qwen = createQwen()

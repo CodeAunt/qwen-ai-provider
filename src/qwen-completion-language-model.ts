@@ -69,8 +69,8 @@ const QwenCompletionResponseSchema = z.object({
  * Implements the LanguageModelV1 interface and handles regular, streaming completions.
  */
 export class QwenCompletionLanguageModel
-implements LanguageModelV1 {
-  readonly specificationVersion = "v1"
+implements LanguageModelV2 {
+  readonly specificationVersion = "v2"
   readonly defaultObjectGenerationMode = undefined
 
   readonly modelId: QwenCompletionModelId
