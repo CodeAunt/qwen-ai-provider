@@ -1,5 +1,5 @@
 /* eslint-disable dot-notation */
-import type { LanguageModelV1Prompt } from "@ai-sdk/provider"
+import type { LanguageModelV2Prompt } from "@ai-sdk/provider"
 import {
   convertReadableStreamToArray,
   createTestServer,
@@ -8,7 +8,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import { QwenChatLanguageModel } from "../src/qwen-chat-language-model"
 import { createQwen } from "../src/qwen-provider"
 
-const TEST_PROMPT: LanguageModelV1Prompt = [
+const TEST_PROMPT: LanguageModelV2Prompt = [
   { role: "user", content: [{ type: "text", text: "Hello" }] },
 ]
 

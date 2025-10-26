@@ -51,8 +51,8 @@ const qwenTextEmbeddingResponseSchema = z.object({
 })
 
 export class QwenEmbeddingModel
-implements EmbeddingModelV2<string> {
-  readonly specificationVersion = "v1"
+  implements EmbeddingModelV2<string> {
+  readonly specificationVersion = "v2"
   readonly modelId: QwenEmbeddingModelId
 
   private readonly config: QwenEmbeddingConfig
@@ -100,11 +100,11 @@ implements EmbeddingModelV2<string> {
    */
   async doEmbed({
     values,
-      headers,
-      abortSignal,
-  }: Parameters<EmbeddingModelV1<string>["doEmbed"]>[0]): Promise<
-      Awaited<ReturnType<EmbeddingModelV1<string>["doEmbed"]>>
-    > {
+    headers,
+    abortSignal,
+  }: Parameters<EmbeddingModelV2<string>["doEmbed"]>[0]): Promise<
+    Awaited<ReturnType<EmbeddingModelV2<string>["doEmbed"]>>
+  > {
     // Validate that number of embeddings does not exceed maximum allowed.
     if (values.length > this.maxEmbeddingsPerCall) {
       throw new TooManyEmbeddingValuesForCallError({

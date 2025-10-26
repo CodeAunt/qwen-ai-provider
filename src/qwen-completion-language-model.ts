@@ -298,6 +298,7 @@ implements LanguageModelV2 {
         headers: responseHeaders,
       },
       request: { body: JSON.stringify(args) },
+      warnings: [] // todo: support tool warnings
     }
   }
 
