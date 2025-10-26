@@ -2,11 +2,9 @@
 import type { LanguageModelV1Prompt } from "@ai-sdk/provider"
 import {
   convertReadableStreamToArray,
-  describeWithTestServer,
-  JsonTestServer,
-  StreamingTestServer,
+  createTestServer,
 } from "@ai-sdk/provider-utils/test"
-import { describe, expect, it } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import { QwenChatLanguageModel } from "../src/qwen-chat-language-model"
 import { createQwen } from "../src/qwen-provider"
 
@@ -70,9 +68,13 @@ describe("config", () => {
 })
 
 describe("doGenerate", () => {
-  const server = new JsonTestServer("https://my.api.com/v1/chat/completions")
+  const server = createTestServer({
+    "https://my.api.com/v1/chat/completions": {},
+  })
 
-  server.setupTestEnvironment()
+  beforeEach(() => {
+    server.calls.length = 0
+  })
 
   function prepareJsonResponse({
     content = "",
@@ -113,26 +115,29 @@ describe("doGenerate", () => {
     id?: string
     model?: string
   } = {}) {
-    server.responseBodyJson = {
-      id,
-      object: "chat.completion",
-      created,
-      model,
-      choices: [
-        {
-          index: 0,
-          message: {
-            role: "assistant",
-            content,
-            reasoning_content,
-            tool_calls,
-            function_call,
+    server.urls["https://my.api.com/v1/chat/completions"].response = {
+      type: "json-value",
+      body: {
+        id,
+        object: "chat.completion",
+        created,
+        model,
+        choices: [
+          {
+            index: 0,
+            message: {
+              role: "assistant",
+              content,
+              reasoning_content,
+              tool_calls,
+              function_call,
+            },
+            finish_reason,
           },
-          finish_reason,
-        },
-      ],
-      usage,
-      system_fingerprint: "fp_3bc1b5746c",
+        ],
+        usage,
+        system_fingerprint: "fp_3bc1b5746c",
+      },
     }
   }
 
@@ -169,16 +174,18 @@ describe("doGenerate", () => {
       reasoning_content: "This is the reasoning behind the response",
     })
 
-    const { text, reasoningText } = await model.doGenerate({
+    const { content } = await model.doGenerate({
       inputFormat: "prompt",
       mode: { type: "regular" },
       prompt: TEST_PROMPT,
     })
 
-    expect(text).toStrictEqual("Hello, World!")
-    expect(reasoning).toStrictEqual(
+    const textParts = content.filter(p => p.type === "text")
+    expect(textParts).toHaveLength(2)
+    expect(textParts[0].text).toStrictEqual(
       "This is the reasoning behind the response",
     )
+    expect(textParts[1].text).toStrictEqual("Hello, World!")
   })
 
   it("should extract usage", async () => {
@@ -865,11 +872,13 @@ describe("doGenerate", () => {
 })
 
 describe("doStream", () => {
-  const server = new StreamingTestServer(
-    "https://my.api.com/v1/chat/completions",
-  )
+  const streamServer = createTestServer({
+    "https://my.api.com/v1/chat/completions": {},
+  })
 
-  server.setupTestEnvironment()
+  beforeEach(() => {
+    streamServer.calls.length = 0
+  })
 
   function prepareStreamResponse({
     content,
@@ -878,23 +887,26 @@ describe("doStream", () => {
     content: string[]
     finish_reason?: string
   }) {
-    server.responseChunks = [
-      `data: {"id":"chatcmpl-e7f8e220-656c-4455-a132-dacfc1370798","object":"chat.completion.chunk","created":1702657020,"model":"qwen-chat",`
-      + `"system_fingerprint":null,"choices":[{"index":0,"delta":{"role":"assistant","content":""},"finish_reason":null}]}\n\n`,
-      ...content.map((text) => {
-        return (
-          `data: {"id":"chatcmpl-e7f8e220-656c-4455-a132-dacfc1370798","object":"chat.completion.chunk","created":1702657020,"model":"qwen-chat",`
-          + `"system_fingerprint":null,"choices":[{"index":1,"delta":{"content":"${text}"},"finish_reason":null}]}\n\n`
-        )
-      }),
-      `data: {"id":"chatcmpl-e7f8e220-656c-4455-a132-dacfc1370798","object":"chat.completion.chunk","created":1702657020,"model":"qwen-chat",`
-      + `"system_fingerprint":null,"choices":[{"index":0,"delta":{},"finish_reason":"${finish_reason}"}]}\n\n`,
-      `data: {"id":"chatcmpl-e7f8e220-656c-4455-a132-dacfc1370798","object":"chat.completion.chunk","created":1729171479,"model":"qwen-chat",`
-      + `"system_fingerprint":"fp_10c08bf97d","choices":[{"index":0,"delta":{},"finish_reason":"${finish_reason}"}],`
-      + `"usage":{"queue_time":0.061348671,"prompt_tokens":18,"prompt_time":0.000211569,`
-      + `"completion_tokens":439,"completion_time":0.798181818,"total_tokens":457,"total_time":0.798393387}}\n\n`,
-      "data: [DONE]\n\n",
-    ]
+    streamServer.urls["https://my.api.com/v1/chat/completions"].response = {
+      type: "stream-chunks",
+      chunks: [
+        `data: {"id":"chatcmpl-e7f8e220-656c-4455-a132-dacfc1370798","object":"chat.completion.chunk","created":1702657020,"model":"qwen-chat",`
+        + `"system_fingerprint":null,"choices":[{"index":0,"delta":{"role":"assistant","content":""},"finish_reason":null}]}\n\n`,
+        ...content.map((text) => {
+          return (
+            `data: {"id":"chatcmpl-e7f8e220-656c-4455-a132-dacfc1370798","object":"chat.completion.chunk","created":1702657020,"model":"qwen-chat",`
+            + `"system_fingerprint":null,"choices":[{"index":1,"delta":{"content":"${text}"},"finish_reason":null}]}\n\n`
+          )
+        }),
+        `data: {"id":"chatcmpl-e7f8e220-656c-4455-a132-dacfc1370798","object":"chat.completion.chunk","created":1702657020,"model":"qwen-chat",`
+        + `"system_fingerprint":null,"choices":[{"index":0,"delta":{},"finish_reason":"${finish_reason}"}]}\n\n`,
+        `data: {"id":"chatcmpl-e7f8e220-656c-4455-a132-dacfc1370798","object":"chat.completion.chunk","created":1729171479,"model":"qwen-chat",`
+        + `"system_fingerprint":"fp_10c08bf97d","choices":[{"index":0,"delta":{},"finish_reason":"${finish_reason}"}],`
+        + `"usage":{"queue_time":0.061348671,"prompt_tokens":18,"prompt_time":0.000211569,`
+        + `"completion_tokens":439,"completion_time":0.798181818,"total_tokens":457,"total_time":0.798393387}}\n\n`,
+        "data: [DONE]\n\n",
+      ],
+    }
   }
 
   it("should stream text deltas", async () => {
@@ -917,33 +929,36 @@ describe("doStream", () => {
         modelId: "qwen-chat",
         timestamp: new Date("2023-12-15T16:17:00.000Z"),
       },
-      { type: "text-delta", textDelta: "" },
-      { type: "text-delta", textDelta: "Hello" },
-      { type: "text-delta", textDelta: ", " },
-      { type: "text-delta", textDelta: "World!" },
+      { type: "text-delta", id: "content", delta: "" },
+      { type: "text-delta", id: "content", delta: "Hello" },
+      { type: "text-delta", id: "content", delta: ", " },
+      { type: "text-delta", id: "content", delta: "World!" },
       {
         type: "finish",
         finishReason: "stop",
-        usage: { inputTokens: 18, outputTokens: 439 },
+        usage: { inputTokens: 18, outputTokens: 439, totalTokens: 457 },
       },
     ])
   })
 
   it("should stream reasoning content before text deltas", async () => {
-    server.responseChunks = [
-      `data: {"id":"chatcmpl-e7f8e220-656c-4455-a132-dacfc1370798","object":"chat.completion.chunk","created":1711357598,"model":"qwen-chat",`
-      + `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{"role":"assistant","reasoning_content":"Let me think"},"finish_reason":null}]}\n\n`,
-      `data: {"id":"chatcmpl-e7f8e220-656c-4455-a132-dacfc1370798","object":"chat.completion.chunk","created":1711357598,"model":"qwen-chat",`
-      + `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{"reasoning_content":" about this"},"finish_reason":null}]}\n\n`,
-      `data: {"id":"chatcmpl-e7f8e220-656c-4455-a132-dacfc1370798","object":"chat.completion.chunk","created":1711357598,"model":"qwen-chat",`
-      + `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{"content":"Here's"},"finish_reason":null}]}\n\n`,
-      `data: {"id":"chatcmpl-e7f8e220-656c-4455-a132-dacfc1370798","object":"chat.completion.chunk","created":1711357598,"model":"qwen-chat",`
-      + `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{"content":" my response"},"finish_reason":null}]}\n\n`,
-      `data: {"id":"chatcmpl-e7f8e220-656c-4455-a132-dacfc1370798","object":"chat.completion.chunk","created":1729171479,"model":"qwen-chat",`
-      + `"system_fingerprint":"fp_10c08bf97d","choices":[{"index":0,"delta":{},"finish_reason":"stop"}],`
-      + `"usage":{"prompt_tokens":18,"completion_tokens":439}}\n\n`,
-      "data: [DONE]\n\n",
-    ]
+    streamServer.urls["https://my.api.com/v1/chat/completions"].response = {
+      type: "stream-chunks",
+      chunks: [
+        `data: {"id":"chatcmpl-e7f8e220-656c-4455-a132-dacfc1370798","object":"chat.completion.chunk","created":1711357598,"model":"qwen-chat",`
+        + `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{"role":"assistant","reasoning_content":"Let me think"},"finish_reason":null}]}\n\n`,
+        `data: {"id":"chatcmpl-e7f8e220-656c-4455-a132-dacfc1370798","object":"chat.completion.chunk","created":1711357598,"model":"qwen-chat",`
+        + `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{"reasoning_content":" about this"},"finish_reason":null}]}\n\n`,
+        `data: {"id":"chatcmpl-e7f8e220-656c-4455-a132-dacfc1370798","object":"chat.completion.chunk","created":1711357598,"model":"qwen-chat",`
+        + `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{"content":"Here's"},"finish_reason":null}]}\n\n`,
+        `data: {"id":"chatcmpl-e7f8e220-656c-4455-a132-dacfc1370798","object":"chat.completion.chunk","created":1711357598,"model":"qwen-chat",`
+        + `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{"content":" my response"},"finish_reason":null}]}\n\n`,
+        `data: {"id":"chatcmpl-e7f8e220-656c-4455-a132-dacfc1370798","object":"chat.completion.chunk","created":1729171479,"model":"qwen-chat",`
+        + `"system_fingerprint":"fp_10c08bf97d","choices":[{"index":0,"delta":{},"finish_reason":"stop"}],`
+        + `"usage":{"prompt_tokens":18,"completion_tokens":439,"total_tokens":457}}\n\n`,
+        "data: [DONE]\n\n",
+      ],
+    }
 
     const { stream } = await model.doStream({
       inputFormat: "prompt",
@@ -959,25 +974,29 @@ describe("doStream", () => {
         timestamp: new Date("2024-03-25T09:06:38.000Z"),
       },
       {
-        type: "reasoning",
-        textDelta: "Let me think",
-      },
-      {
-        type: "reasoning",
-        textDelta: " about this",
+        type: "text-delta",
+        id: "reasoning",
+        delta: "Let me think",
       },
       {
         type: "text-delta",
-        textDelta: "Here's",
+        id: "reasoning",
+        delta: " about this",
       },
       {
         type: "text-delta",
-        textDelta: " my response",
+        id: "content",
+        delta: "Here's",
+      },
+      {
+        type: "text-delta",
+        id: "content",
+        delta: " my response",
       },
       {
         type: "finish",
         finishReason: "stop",
-        usage: { inputTokens: 18, outputTokens: 439 },
+        usage: { inputTokens: 18, outputTokens: 439, totalTokens: 457 },
       },
     ])
   })

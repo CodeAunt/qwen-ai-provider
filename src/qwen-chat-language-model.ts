@@ -137,7 +137,7 @@ export class QwenChatLanguageModel implements LanguageModelV2 {
   private readonly chunkSchema // type inferred via constructor
   readonly supportedUrls: Record<string, RegExp[]> | PromiseLike<Record<string, RegExp[]>> = {
     // todo
-  };
+  }
 
   /**
    * Constructs a new QwenChatLanguageModel.
@@ -268,15 +268,15 @@ export class QwenChatLanguageModel implements LanguageModelV2 {
       response_format:
         responseFormat?.type === "json"
           ? this.supportsStructuredOutputs === true
-            && responseFormat.schema != null
+          && responseFormat.schema != null
             ? {
-              type: "json_schema",
-              json_schema: {
-                schema: responseFormat.schema,
-                name: responseFormat.name ?? "response",
-                description: responseFormat.description,
-              },
-            }
+                type: "json_schema",
+                json_schema: {
+                  schema: responseFormat.schema,
+                  name: responseFormat.name ?? "response",
+                  description: responseFormat.description,
+                },
+              }
             : { type: "json_object" }
           : undefined,
 
@@ -309,13 +309,13 @@ export class QwenChatLanguageModel implements LanguageModelV2 {
             response_format:
               this.supportsStructuredOutputs === true && mode.schema != null
                 ? {
-                  type: "json_schema",
-                  json_schema: {
-                    schema: mode.schema,
-                    name: mode.name ?? "response",
-                    description: mode.description,
-                  },
-                }
+                    type: "json_schema",
+                    json_schema: {
+                      schema: mode.schema,
+                      name: mode.name ?? "response",
+                      description: mode.description,
+                    },
+                  }
                 : { type: "json_object" },
           },
           warnings,
@@ -342,7 +342,7 @@ export class QwenChatLanguageModel implements LanguageModelV2 {
             ],
           },
           warnings,
-        };
+        }
       }
 
       default: {
@@ -392,21 +392,21 @@ export class QwenChatLanguageModel implements LanguageModelV2 {
 
     // Build content array
     const content: Array<any> = []
-    
+
     if (choice.message.reasoning_content) {
       content.push({
         type: "text",
         text: choice.message.reasoning_content,
       })
     }
-    
+
     if (choice.message.content) {
       content.push({
         type: "text",
         text: choice.message.content,
       })
     }
-    
+
     if (choice.message.tool_calls) {
       for (const toolCall of choice.message.tool_calls) {
         content.push({
@@ -433,7 +433,7 @@ export class QwenChatLanguageModel implements LanguageModelV2 {
         headers: responseHeaders,
       },
       request: { body },
-    };
+    }
   }
 
   /**
@@ -451,7 +451,7 @@ export class QwenChatLanguageModel implements LanguageModelV2 {
         start(controller) {
           // Send metadata then content parts.
           controller.enqueue({ type: "response-metadata", ...result.response })
-          
+
           // Process content array
           for (const part of result.content) {
             if (part.type === "text") {
@@ -460,7 +460,8 @@ export class QwenChatLanguageModel implements LanguageModelV2 {
                 id: generateId(),
                 delta: part.text,
               })
-            } else if (part.type === "tool-call") {
+            }
+            else if (part.type === "tool-call") {
               controller.enqueue({
                 type: "tool-call",
                 toolCallId: part.toolCallId,
@@ -469,7 +470,7 @@ export class QwenChatLanguageModel implements LanguageModelV2 {
               })
             }
           }
-          
+
           controller.enqueue({
             type: "finish",
             finishReason: result.finishReason,
@@ -708,8 +709,8 @@ export class QwenChatLanguageModel implements LanguageModelV2 {
               usage: {
                 inputTokens,
                 outputTokens,
-                totalTokens: (Number.isNaN(inputTokens) || Number.isNaN(outputTokens)) 
-                  ? Number.NaN 
+                totalTokens: (Number.isNaN(inputTokens) || Number.isNaN(outputTokens))
+                  ? Number.NaN
                   : inputTokens + outputTokens,
               },
               ...(metadata && { providerMetadata: metadata }),
@@ -719,7 +720,7 @@ export class QwenChatLanguageModel implements LanguageModelV2 {
       ),
       response: { headers: responseHeaders },
       request: { body },
-    };
+    }
   }
 }
 

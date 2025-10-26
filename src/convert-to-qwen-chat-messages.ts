@@ -20,7 +20,7 @@ import { convertUint8ArrayToBase64 } from "@ai-sdk/provider-utils"
 function getQwenMetadata(message: {
   providerOptions?: SharedV2ProviderMetadata
 }) {
-  return message?.providerOptions?.qwen ?? {};
+  return message?.providerOptions?.qwen ?? {}
 }
 
 /**
@@ -69,18 +69,18 @@ export function convertToQwenChatMessages(
                 if (part.mediaType?.startsWith("image/")) {
                   // Build the data URL from the file data
                   const url = typeof part.data === "string"
-                    ? part.data  // Already a data URL or regular URL
+                    ? part.data // Already a data URL or regular URL
                     : part.data instanceof Uint8Array
-                    ? `data:${part.mediaType};base64,${convertUint8ArrayToBase64(part.data)}`
-                    : part.data.toString()  // URL object
-                  
+                      ? `data:${part.mediaType};base64,${convertUint8ArrayToBase64(part.data)}`
+                      : part.data.toString() // URL object
+
                   return {
                     type: "image_url",
                     image_url: {
                       url,
                     },
                     ...partMetadata,
-                  };
+                  }
                 }
                 // For non-image files, throw unsupported error
                 throw new UnsupportedFunctionalityError({

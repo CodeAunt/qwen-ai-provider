@@ -144,8 +144,9 @@ implements LanguageModelV2 {
    * @throws UnsupportedFunctionalityError If unsupported functionalities (tools, toolChoice, object-json mode,
    *         or object-tool mode) are specified in the mode configuration.
    */
-  private getArgs({
-    mode,
+  private getArgs(options: Parameters<LanguageModelV2["doGenerate"]>[0]) {
+    const {
+      mode,
       inputFormat,
       prompt,
       maxOutputTokens,
@@ -158,10 +159,10 @@ implements LanguageModelV2 {
       responseFormat,
       seed,
       providerOptions,
-  }: Parameters<LanguageModelV1["doGenerate"]>[0]) {
+    } = options as any
     const type = mode.type
 
-    const warnings: LanguageModelV1CallWarning[] = []
+    const warnings: LanguageModelV2CallWarning[] = []
 
     // Warn if unsupported settings are used.
     if (topK != null) {
@@ -193,7 +194,7 @@ implements LanguageModelV2 {
       suffix: this.settings.suffix,
       user: this.settings.user,
       // Standardized settings:
-      max_tokens: maxTokens,
+      max_tokens: maxOutputTokens,
       temperature,
       top_p: topP,
       frequency_penalty: frequencyPenalty,
@@ -249,9 +250,9 @@ implements LanguageModelV2 {
    * @returns A promise resolving the generated text, usage, finish status, and metadata.
    */
   async doGenerate(
-    options: Parameters<LanguageModelV1["doGenerate"]>[0],
-  ): Promise<Awaited<ReturnType<LanguageModelV1["doGenerate"]>>> {
-    const { args, warnings } = this.getArgs(options)
+    options: Parameters<LanguageModelV2["doGenerate"]>[0],
+  ): Promise<Awaited<ReturnType<LanguageModelV2["doGenerate"]>>> {
+    const { args } = this.getArgs(options)
 
     const { responseHeaders, value: response } = await postJsonToApi({
       url: this.config.url({
@@ -268,23 +269,36 @@ implements LanguageModelV2 {
       fetch: this.config.fetch,
     })
 
-    // Extract raw prompt and settings for debugging.
-    const { prompt: rawPrompt, ...rawSettings } = args
     const choice = response.choices[0]
 
+    // Build content array
+    const content: Array<{ type: "text", text: string }> = []
+    if (choice.text) {
+      content.push({
+        type: "text",
+        text: choice.text,
+      })
+    }
+
+    const inputTokens = response.usage?.prompt_tokens ?? Number.NaN
+    const outputTokens = response.usage?.completion_tokens ?? Number.NaN
+
     return {
-      text: choice.text,
+      content,
       usage: {
-        inputTokens: response.usage?.prompt_tokens ?? Number.NaN,
-        outputTokens: response.usage?.completion_tokens ?? Number.NaN,
+        inputTokens,
+        outputTokens,
+        totalTokens: (Number.isNaN(inputTokens) || Number.isNaN(outputTokens))
+          ? Number.NaN
+          : inputTokens + outputTokens,
       },
       finishReason: mapQwenFinishReason(choice.finish_reason),
-      rawCall: { rawPrompt, rawSettings },
-      response: { headers: responseHeaders },
-      response: getResponseMetadata(response),
-      warnings,
+      response: {
+        ...getResponseMetadata(response),
+        headers: responseHeaders,
+      },
       request: { body: JSON.stringify(args) },
-    };
+    }
   }
 
   /**
@@ -294,9 +308,9 @@ implements LanguageModelV2 {
    * @returns A promise resolving a stream of response parts and metadata.
    */
   async doStream(
-    options: Parameters<LanguageModelV1["doStream"]>[0],
-  ): Promise<Awaited<ReturnType<LanguageModelV1["doStream"]>>> {
-    const { args, warnings } = this.getArgs(options)
+    options: Parameters<LanguageModelV2["doStream"]>[0],
+  ): Promise<Awaited<ReturnType<LanguageModelV2["doStream"]>>> {
+    const { args } = this.getArgs(options)
 
     const body = {
       ...args,
@@ -318,10 +332,8 @@ implements LanguageModelV2 {
       fetch: this.config.fetch,
     })
 
-    const { prompt: rawPrompt, ...rawSettings } = args
-
-    let finishReason: LanguageModelV1FinishReason = "unknown"
-    let usage: { promptTokens: number, completionTokens: number } = {
+    let finishReason: LanguageModelV2FinishReason = "unknown"
+    let usage: { inputTokens: number, outputTokens: number } = {
       inputTokens: Number.NaN,
       outputTokens: Number.NaN,
     }
@@ -331,7 +343,7 @@ implements LanguageModelV2 {
       stream: response.pipeThrough(
         new TransformStream<
           ParseResult<z.infer<typeof this.chunkSchema>>,
-          LanguageModelV1StreamPart
+          LanguageModelV2StreamPart
         >({
           transform(chunk, controller) {
             // Validate the current chunk and handle potential errors.
@@ -379,7 +391,8 @@ implements LanguageModelV2 {
               // Enqueue text delta for streaming.
               controller.enqueue({
                 type: "text-delta",
-                textDelta: choice.text,
+                id: "text",
+                delta: choice.text,
               })
             }
           },
@@ -389,16 +402,20 @@ implements LanguageModelV2 {
             controller.enqueue({
               type: "finish",
               finishReason,
-              usage,
+              usage: {
+                inputTokens: usage.inputTokens,
+                outputTokens: usage.outputTokens,
+                totalTokens: (Number.isNaN(usage.inputTokens) || Number.isNaN(usage.outputTokens))
+                  ? Number.NaN
+                  : usage.inputTokens + usage.outputTokens,
+              },
             })
           },
         }),
       ),
-      rawCall: { rawPrompt, rawSettings },
       response: { headers: responseHeaders },
-      warnings,
       request: { body: JSON.stringify(body) },
-    };
+    }
   }
 }
 

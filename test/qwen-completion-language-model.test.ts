@@ -2,10 +2,9 @@
 import type { LanguageModelV1Prompt } from "@ai-sdk/provider"
 import {
   convertReadableStreamToArray,
-  JsonTestServer,
-  StreamingTestServer,
+  createTestServer,
 } from "@ai-sdk/provider-utils/test"
-import { describe, expect, it } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import { QwenChatLanguageModel } from "../src/qwen-chat-language-model"
 import { createQwen } from "../src/qwen-provider"
 
@@ -69,9 +68,13 @@ describe("config", () => {
 })
 
 describe("doGenerate", () => {
-  const server = new JsonTestServer("https://my.api.com/v1/completions")
+  const server = createTestServer({
+    "https://my.api.com/v1/completions": {},
+  })
 
-  server.setupTestEnvironment()
+  beforeEach(() => {
+    server.calls.length = 0
+  })
 
   function prepareJsonResponse({
     content = "",
@@ -96,19 +99,22 @@ describe("doGenerate", () => {
     created?: number
     model?: string
   }) {
-    server.responseBodyJson = {
-      id,
-      object: "text_completion",
-      created,
-      model,
-      choices: [
-        {
-          text: content,
-          index: 0,
-          finish_reason,
-        },
-      ],
-      usage,
+    server.urls["https://my.api.com/v1/completions"].response = {
+      type: "json-value",
+      body: {
+        id,
+        object: "text_completion",
+        created,
+        model,
+        choices: [
+          {
+            text: content,
+            index: 0,
+            finish_reason,
+          },
+        ],
+        usage,
+      },
     }
   }
 
