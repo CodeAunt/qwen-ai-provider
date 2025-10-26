@@ -1,4 +1,4 @@
-import type { EmbeddingModelV1Embedding } from "@ai-sdk/provider"
+import type { EmbeddingModelV2Embedding } from "@ai-sdk/provider"
 import { createTestServer } from "@ai-sdk/provider-utils/test"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { createQwen } from "../src/qwen-provider"
@@ -33,7 +33,7 @@ describe("doEmbed", () => {
     embeddings = dummyEmbeddings,
     usage = { prompt_tokens: 8, total_tokens: 8 },
   }: {
-    embeddings?: EmbeddingModelV1Embedding[]
+    embeddings?: EmbeddingModelV2Embedding[]
     usage?: { prompt_tokens: number, total_tokens: number }
   } = {}) {
     server.urls["https://my.api.com/v1/embeddings"].response = {

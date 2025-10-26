@@ -326,9 +326,13 @@ describe("doGenerate", () => {
 })
 
 describe("doStream", () => {
-  const server = new StreamingTestServer("https://my.api.com/v1/completions")
+  const streamServer = createTestServer({
+    "https://my.api.com/v1/completions": {},
+  })
 
-  server.setupTestEnvironment()
+  beforeEach(() => {
+    streamServer.calls.length = 0
+  })
 
   function prepareStreamResponse({
     content,
@@ -347,21 +351,24 @@ describe("doStream", () => {
     }
     finish_reason?: string
   }) {
-    server.responseChunks = [
-      ...content.map((text) => {
-        return (
-          `data: {"id":"cmpl-96c64EdfhOw8pjFFgVpLuT8k2MtdT","object":"text_completion","created":1711363440,`
-          + `"choices":[{"text":"${text}","index":0,"finish_reason":null}],"model":"qwen-plus"}\n\n`
-        )
-      }),
-      `data: {"id":"cmpl-96c3yLQE1TtZCd6n6OILVmzev8M8H","object":"text_completion","created":1711363310,`
-      + `"choices":[{"text":"","index":0,"finish_reason":"${finish_reason}"}],"model":"qwen-plus"}\n\n`,
-      `data: {"id":"cmpl-96c3yLQE1TtZCd6n6OILVmzev8M8H","object":"text_completion","created":1711363310,`
-      + `"model":"qwen-plus","usage":${JSON.stringify(
-        usage,
-      )},"choices":[]}\n\n`,
-      "data: [DONE]\n\n",
-    ]
+    streamServer.urls["https://my.api.com/v1/completions"].response = {
+      type: "stream-chunks",
+      chunks: [
+        ...content.map((text) => {
+          return (
+            `data: {"id":"cmpl-96c64EdfhOw8pjFFgVpLuT8k2MtdT","object":"text_completion","created":1711363440,`
+            + `"choices":[{"text":"${text}","index":0,"finish_reason":null}],"model":"qwen-plus"}\n\n`
+          )
+        }),
+        `data: {"id":"cmpl-96c3yLQE1TtZCd6n6OILVmzev8M8H","object":"text_completion","created":1711363310,`
+        + `"choices":[{"text":"","index":0,"finish_reason":"${finish_reason}"}],"model":"qwen-plus"}\n\n`,
+        `data: {"id":"cmpl-96c3yLQE1TtZCd6n6OILVmzev8M8H","object":"text_completion","created":1711363310,`
+        + `"model":"qwen-plus","usage":${JSON.stringify(
+          usage,
+        )},"choices":[]}\n\n`,
+        "data: [DONE]\n\n",
+      ],
+    }
   }
 
   it("should stream text deltas", async () => {

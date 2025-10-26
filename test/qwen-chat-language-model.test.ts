@@ -1,5 +1,5 @@
 /* eslint-disable dot-notation */
-import type { LanguageModelV1Prompt } from "@ai-sdk/provider"
+import type { LanguageModelV2Prompt } from "@ai-sdk/provider"
 import {
   convertReadableStreamToArray,
   createTestServer,
@@ -8,7 +8,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import { QwenChatLanguageModel } from "../src/qwen-chat-language-model"
 import { createQwen } from "../src/qwen-provider"
 
-const TEST_PROMPT: LanguageModelV1Prompt = [
+const TEST_PROMPT: LanguageModelV2Prompt = [
   { role: "user", content: [{ type: "text", text: "Hello" }] },
 ]
 
@@ -1605,9 +1605,13 @@ describe("doStream", () => {
 })
 
 describe("doStream simulated streaming", () => {
-  const server = new JsonTestServer("https://my.api.com/v1/chat/completions")
+  const simulatedStreamServer = createTestServer({
+    "https://my.api.com/v1/chat/completions": {},
+  })
 
-  server.setupTestEnvironment()
+  beforeEach(() => {
+    simulatedStreamServer.calls.length = 0
+  })
 
   function prepareJsonResponse({
     content = "",
@@ -1643,25 +1647,28 @@ describe("doStream simulated streaming", () => {
     id?: string
     model?: string
   } = {}) {
-    server.responseBodyJson = {
-      id,
-      object: "chat.completion",
-      created,
-      model,
-      choices: [
-        {
-          index: 0,
-          message: {
-            role: "assistant",
-            content,
-            tool_calls,
-            reasoning_content,
+    simulatedStreamServer.urls["https://my.api.com/v1/chat/completions"].response = {
+      type: "json-value",
+      body: {
+        id,
+        object: "chat.completion",
+        created,
+        model,
+        choices: [
+          {
+            index: 0,
+            message: {
+              role: "assistant",
+              content,
+              tool_calls,
+              reasoning_content,
+            },
+            finish_reason,
           },
-          finish_reason,
-        },
-      ],
-      usage,
-      system_fingerprint: "fp_3bc1b5746c",
+        ],
+        usage,
+        system_fingerprint: "fp_3bc1b5746c",
+      },
     }
   }
 
