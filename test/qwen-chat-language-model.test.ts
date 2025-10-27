@@ -147,11 +147,9 @@ describe("doGenerate", () => {
       user: "test-user-id",
     })
     await modelWithUser.doGenerate({
-      inputFormat: "prompt",
-      mode: { type: "regular" },
       prompt: TEST_PROMPT,
     })
-    expect(await server.getRequestBodyJson()).toMatchObject({
+    expect(await server.calls[0]?.requestBodyJson).toMatchObject({
       user: "test-user-id",
     })
   })
@@ -159,13 +157,14 @@ describe("doGenerate", () => {
   it("should extract text response", async () => {
     prepareJsonResponse({ content: "Hello, World!" })
 
-    const { text } = await model.doGenerate({
-      inputFormat: "prompt",
-      mode: { type: "regular" },
+    const { content } = await model.doGenerate({
       prompt: TEST_PROMPT,
     })
 
-    expect(text).toStrictEqual("Hello, World!")
+    expect(content[0]).toStrictEqual({
+      type: "text",
+      text: "Hello, World!",
+    })
   })
 
   it("should extract reasoning content", async () => {
@@ -175,8 +174,6 @@ describe("doGenerate", () => {
     })
 
     const { content } = await model.doGenerate({
-      inputFormat: "prompt",
-      mode: { type: "regular" },
       prompt: TEST_PROMPT,
     })
 
@@ -195,8 +192,6 @@ describe("doGenerate", () => {
     })
 
     const { usage } = await model.doGenerate({
-      inputFormat: "prompt",
-      mode: { type: "regular" },
       prompt: TEST_PROMPT,
     })
 
@@ -214,8 +209,6 @@ describe("doGenerate", () => {
     })
 
     const { response } = await model.doGenerate({
-      inputFormat: "prompt",
-      mode: { type: "regular" },
       prompt: TEST_PROMPT,
     })
 
@@ -233,8 +226,7 @@ describe("doGenerate", () => {
     })
 
     const { usage } = await model.doGenerate({
-      inputFormat: "prompt",
-      mode: { type: "regular" },
+
       prompt: TEST_PROMPT,
     })
 
@@ -251,8 +243,7 @@ describe("doGenerate", () => {
     })
 
     const response = await model.doGenerate({
-      inputFormat: "prompt",
-      mode: { type: "regular" },
+
       prompt: TEST_PROMPT,
     })
 
@@ -266,8 +257,6 @@ describe("doGenerate", () => {
     })
 
     const response = await model.doGenerate({
-      inputFormat: "prompt",
-      mode: { type: "regular" },
       prompt: TEST_PROMPT,
     })
 
@@ -282,8 +271,7 @@ describe("doGenerate", () => {
     }
 
     const { response } = await model.doGenerate({
-      inputFormat: "prompt",
-      mode: { type: "regular" },
+
       prompt: TEST_PROMPT,
     })
 
@@ -301,12 +289,11 @@ describe("doGenerate", () => {
     prepareJsonResponse({ content: "" })
 
     await model.doGenerate({
-      inputFormat: "prompt",
-      mode: { type: "regular" },
+
       prompt: TEST_PROMPT,
     })
 
-    expect(await server.getRequestBodyJson()).toStrictEqual({
+    expect(await server.calls[0]?.requestBodyJson).toStrictEqual({
       model: "qwen-chat",
       messages: [{ role: "user", content: "Hello" }],
     })
@@ -318,12 +305,11 @@ describe("doGenerate", () => {
     await provider("qwen-chat", {
       user: "test-user-id",
     }).doGenerate({
-      inputFormat: "prompt",
-      mode: { type: "regular" },
+
       prompt: TEST_PROMPT,
     })
 
-    expect(await server.getRequestBodyJson()).toStrictEqual({
+    expect(await server.calls[0]?.requestBodyJson).toStrictEqual({
       model: "qwen-chat",
       messages: [{ role: "user", content: "Hello" }],
       user: "test-user-id",
@@ -334,8 +320,7 @@ describe("doGenerate", () => {
     prepareJsonResponse()
 
     await provider("qwen-chat").doGenerate({
-      inputFormat: "prompt",
-      mode: { type: "regular" },
+
       providerOptions: {
         "test-provider": {
           someCustomOption: "test-value",
@@ -344,7 +329,7 @@ describe("doGenerate", () => {
       prompt: TEST_PROMPT,
     })
 
-    expect(await server.getRequestBodyJson()).toStrictEqual({
+    expect(await server.calls[0]?.requestBodyJson).toStrictEqual({
       model: "qwen-chat",
       messages: [{ role: "user", content: "Hello" }],
     })
@@ -354,8 +339,7 @@ describe("doGenerate", () => {
     prepareJsonResponse()
 
     await provider("qwen-chat").doGenerate({
-      inputFormat: "prompt",
-      mode: { type: "regular" },
+
       providerOptions: {
         notThisProviderName: {
           someCustomOption: "test-value",
@@ -364,7 +348,7 @@ describe("doGenerate", () => {
       prompt: TEST_PROMPT,
     })
 
-    expect(await server.getRequestBodyJson()).toStrictEqual({
+    expect(await server.calls[0]?.requestBodyJson).toStrictEqual({
       model: "qwen-chat",
       messages: [{ role: "user", content: "Hello" }],
     })
@@ -374,31 +358,31 @@ describe("doGenerate", () => {
     prepareJsonResponse({ content: "" })
 
     await model.doGenerate({
-      inputFormat: "prompt",
-      mode: {
-        type: "regular",
-        tools: [
-          {
-            type: "function",
-            name: "test-tool",
-            parameters: {
-              type: "object",
-              properties: { value: { type: "string" } },
-              required: ["value"],
-              additionalProperties: false,
-              $schema: "http://json-schema.org/draft-07/schema#",
-            },
+
+      // mode: {
+      //   type: "regular",
+      // },
+      tools: [
+        {
+          type: "function",
+          name: "test-tool",
+          inputSchema: {
+            type: "object",
+            properties: { value: { type: "string" } },
+            required: ["value"],
+            additionalProperties: false,
+            $schema: "http://json-schema.org/draft-07/schema#",
           },
-        ],
-        toolChoice: {
-          type: "tool",
-          toolName: "test-tool",
         },
+      ],
+      toolChoice: {
+        type: "tool",
+        toolName: "test-tool",
       },
       prompt: TEST_PROMPT,
     })
 
-    expect(await server.getRequestBodyJson()).toStrictEqual({
+    expect(await server.calls[0].requestBodyJson).toStrictEqual({
       model: "qwen-chat",
       messages: [{ role: "user", content: "Hello" }],
       tools: [
@@ -435,15 +419,14 @@ describe("doGenerate", () => {
     })
 
     await provider("qwen-chat").doGenerate({
-      inputFormat: "prompt",
-      mode: { type: "regular" },
+
       prompt: TEST_PROMPT,
       headers: {
         "Custom-Request-Header": "request-header-value",
       },
     })
 
-    const requestHeaders = await server.getRequestHeaders()
+    const requestHeaders = await server.calls[0]?.requestHeaders
 
     expect(requestHeaders).toStrictEqual({
       "authorization": "Bearer test-api-key",
@@ -468,35 +451,37 @@ describe("doGenerate", () => {
     })
 
     const result = await model.doGenerate({
-      inputFormat: "prompt",
-      mode: {
-        type: "regular",
-        tools: [
-          {
-            type: "function",
-            name: "test-tool",
-            parameters: {
-              type: "object",
-              properties: { value: { type: "string" } },
-              required: ["value"],
-              additionalProperties: false,
-              $schema: "http://json-schema.org/draft-07/schema#",
-            },
+
+      // mode: {
+      //   type: "regular",
+      // },
+      tools: [
+        {
+          type: "function",
+          name: "test-tool",
+          inputSchema: {
+            type: "object",
+            properties: { value: { type: "string" } },
+            required: ["value"],
+            additionalProperties: false,
+            $schema: "http://json-schema.org/draft-07/schema#",
           },
-        ],
-        toolChoice: {
-          type: "tool",
-          toolName: "test-tool",
         },
+      ],
+      toolChoice: {
+        type: "tool",
+        toolName: "test-tool",
       },
       prompt: TEST_PROMPT,
     })
 
-    expect(result.toolCalls).toStrictEqual([
+    expect(result.content).toStrictEqual([
       {
-        args: "{\"value\":\"Spark\"}",
+        // args: "{\"value\":\"Spark\"}",
+        input: "{\"value\":\"Spark\"}",
         toolCallId: "call_O17Uplv4lJvD6DVdIvFFeRMw",
         toolCallType: "function",
+        type: "tool-call",
         toolName: "test-tool",
       },
     ])
@@ -518,13 +503,12 @@ describe("doGenerate", () => {
       )
 
       await model.doGenerate({
-        inputFormat: "prompt",
-        mode: { type: "regular" },
+
         prompt: TEST_PROMPT,
         responseFormat: { type: "text" },
       })
 
-      expect(await server.getRequestBodyJson()).toStrictEqual({
+      expect(await server.calls[0]?.requestBodyJson).toStrictEqual({
         model: "qwen-plus",
         messages: [{ role: "user", content: "Hello" }],
       })
@@ -536,13 +520,12 @@ describe("doGenerate", () => {
       const model = provider("qwen-plus")
 
       await model.doGenerate({
-        inputFormat: "prompt",
-        mode: { type: "regular" },
+
         prompt: TEST_PROMPT,
         responseFormat: { type: "json" },
       })
 
-      expect(await server.getRequestBodyJson()).toStrictEqual({
+      expect(await server.calls[0]?.requestBodyJson).toStrictEqual({
         model: "qwen-plus",
         messages: [{ role: "user", content: "Hello" }],
         response_format: { type: "json_object" },
@@ -564,8 +547,6 @@ describe("doGenerate", () => {
       )
 
       const { warnings } = await model.doGenerate({
-        inputFormat: "prompt",
-        mode: { type: "regular" },
         prompt: TEST_PROMPT,
         responseFormat: {
           type: "json",
@@ -579,7 +560,7 @@ describe("doGenerate", () => {
         },
       })
 
-      expect(await server.getRequestBodyJson()).toStrictEqual({
+      expect(await server.calls[0]?.requestBodyJson).toStrictEqual({
         model: "qwen-plus",
         messages: [{ role: "user", content: "Hello" }],
         response_format: { type: "json_object" },
@@ -610,8 +591,6 @@ describe("doGenerate", () => {
       )
 
       const { warnings } = await model.doGenerate({
-        inputFormat: "prompt",
-        mode: { type: "regular" },
         prompt: TEST_PROMPT,
         responseFormat: {
           type: "json",
@@ -625,7 +604,7 @@ describe("doGenerate", () => {
         },
       })
 
-      expect(await server.getRequestBodyJson()).toStrictEqual({
+      expect(await server.calls[0]?.requestBodyJson).toStrictEqual({
         model: "qwen-plus",
         messages: [{ role: "user", content: "Hello" }],
         response_format: {
@@ -661,9 +640,8 @@ describe("doGenerate", () => {
       )
 
       await model.doGenerate({
-        inputFormat: "prompt",
-        mode: {
-          type: "object-json",
+        responseFormat: {
+          type: "json",
           schema: {
             type: "object",
             properties: { value: { type: "string" } },
@@ -675,7 +653,7 @@ describe("doGenerate", () => {
         prompt: TEST_PROMPT,
       })
 
-      expect(await server.getRequestBodyJson()).toStrictEqual({
+      expect(await server.calls[0]?.requestBodyJson).toStrictEqual({
         model: "qwen-plus",
         messages: [{ role: "user", content: "Hello" }],
         response_format: {
@@ -709,9 +687,8 @@ describe("doGenerate", () => {
       )
 
       await model.doGenerate({
-        inputFormat: "prompt",
-        mode: {
-          type: "object-json",
+        responseFormat: {
+          type: "json",
           name: "test-name",
           description: "test description",
           schema: {
@@ -725,7 +702,7 @@ describe("doGenerate", () => {
         prompt: TEST_PROMPT,
       })
 
-      expect(await server.getRequestBodyJson()).toStrictEqual({
+      expect(await server.calls[0]?.requestBodyJson).toStrictEqual({
         model: "qwen-plus",
         messages: [{ role: "user", content: "Hello" }],
         response_format: {
@@ -760,7 +737,6 @@ describe("doGenerate", () => {
       )
 
       await model.doGenerate({
-        inputFormat: "prompt",
         mode: {
           type: "object-json",
           name: "test-name",
@@ -769,7 +745,7 @@ describe("doGenerate", () => {
         prompt: TEST_PROMPT,
       })
 
-      expect(await server.getRequestBodyJson()).toStrictEqual({
+      expect(await server.calls[0]?.requestBodyJson).toStrictEqual({
         model: "qwen-plus",
         messages: [{ role: "user", content: "Hello" }],
         response_format: {
@@ -804,7 +780,6 @@ describe("doGenerate", () => {
       )
 
       const result = await model.doGenerate({
-        inputFormat: "prompt",
         mode: {
           type: "object-tool",
           tool: {
@@ -823,7 +798,7 @@ describe("doGenerate", () => {
         prompt: TEST_PROMPT,
       })
 
-      expect(await server.getRequestBodyJson()).toStrictEqual({
+      expect(await server.calls[0]?.requestBodyJson).toStrictEqual({
         model: "qwen-plus",
         messages: [{ role: "user", content: "Hello" }],
         tool_choice: { type: "function", function: { name: "test-tool" } },
@@ -860,8 +835,7 @@ describe("doGenerate", () => {
     prepareJsonResponse({ content: "" })
 
     const { request } = await model.doGenerate({
-      inputFormat: "prompt",
-      mode: { type: "regular" },
+
       prompt: TEST_PROMPT,
     })
 
@@ -916,8 +890,7 @@ describe("doStream", () => {
     })
 
     const { stream } = await model.doStream({
-      inputFormat: "prompt",
-      mode: { type: "regular" },
+
       prompt: TEST_PROMPT,
     })
 
@@ -961,8 +934,7 @@ describe("doStream", () => {
     }
 
     const { stream } = await model.doStream({
-      inputFormat: "prompt",
-      mode: { type: "regular" },
+
       prompt: TEST_PROMPT,
     })
 
@@ -1396,23 +1368,19 @@ describe("doStream", () => {
     ]
 
     const { stream } = await model.doStream({
-      inputFormat: "prompt",
-      mode: {
-        type: "regular",
-        tools: [
-          {
-            type: "function",
-            name: "test-tool",
-            parameters: {
-              type: "object",
-              properties: { value: { type: "string" } },
-              required: ["value"],
-              additionalProperties: false,
-              $schema: "http://json-schema.org/draft-07/schema#",
-            },
+      tools: [
+        {
+          type: "function",
+          name: "test-tool",
+          inputSchema: {
+            type: "object",
+            properties: { value: { type: "string" } },
+            required: ["value"],
+            additionalProperties: false,
+            $schema: "http://json-schema.org/draft-07/schema#",
           },
-        ],
-      },
+        },
+      ],
       prompt: TEST_PROMPT,
     })
 
@@ -1449,8 +1417,7 @@ describe("doStream", () => {
     server.responseChunks = [`data: {unparsable}\n\n`, "data: [DONE]\n\n"]
 
     const { stream } = await model.doStream({
-      inputFormat: "prompt",
-      mode: { type: "regular" },
+
       prompt: TEST_PROMPT,
     })
 
@@ -1476,8 +1443,6 @@ describe("doStream", () => {
     }
 
     const { response } = await model.doStream({
-      inputFormat: "prompt",
-      mode: { type: "regular" },
       prompt: TEST_PROMPT,
     })
 
@@ -1496,12 +1461,10 @@ describe("doStream", () => {
     prepareStreamResponse({ content: [] })
 
     await model.doStream({
-      inputFormat: "prompt",
-      mode: { type: "regular" },
       prompt: TEST_PROMPT,
     })
 
-    expect(await server.getRequestBodyJson()).toStrictEqual({
+    expect(await server.calls[0]?.requestBodyJson).toStrictEqual({
       stream: true,
       stream_options: {
         include_usage: true,
@@ -1523,8 +1486,7 @@ describe("doStream", () => {
     })
 
     await provider("qwen-chat").doStream({
-      inputFormat: "prompt",
-      mode: { type: "regular" },
+
       prompt: TEST_PROMPT,
       headers: {
         "Custom-Request-Header": "request-header-value",
@@ -1545,8 +1507,7 @@ describe("doStream", () => {
     prepareStreamResponse({ content: [] })
 
     await provider("qwen-chat").doStream({
-      inputFormat: "prompt",
-      mode: { type: "regular" },
+
       providerOptions: {
         "test-provider": {
           someCustomOption: "test-value",
@@ -1555,7 +1516,7 @@ describe("doStream", () => {
       prompt: TEST_PROMPT,
     })
 
-    expect(await server.getRequestBodyJson()).toStrictEqual({
+    expect(await server.calls[0]?.requestBodyJson).toStrictEqual({
       stream: true,
       stream_options: {
         include_usage: true,
@@ -1569,8 +1530,7 @@ describe("doStream", () => {
     prepareStreamResponse({ content: [] })
 
     await provider("qwen-chat").doStream({
-      inputFormat: "prompt",
-      mode: { type: "regular" },
+
       providerOptions: {
         notThisProviderName: {
           someCustomOption: "test-value",
@@ -1579,7 +1539,7 @@ describe("doStream", () => {
       prompt: TEST_PROMPT,
     })
 
-    expect(await server.getRequestBodyJson()).toStrictEqual({
+    expect(await server.calls[0]?.requestBodyJson).toStrictEqual({
       stream: true,
       stream_options: {
         include_usage: true,
@@ -1593,8 +1553,7 @@ describe("doStream", () => {
     prepareStreamResponse({ content: [] })
 
     const { request } = await model.doStream({
-      inputFormat: "prompt",
-      mode: { type: "regular" },
+
       prompt: TEST_PROMPT,
     })
 
@@ -1680,8 +1639,7 @@ describe("doStream simulated streaming", () => {
     })
 
     const { stream } = await model.doStream({
-      inputFormat: "prompt",
-      mode: { type: "regular" },
+
       prompt: TEST_PROMPT,
     })
 
@@ -1715,8 +1673,7 @@ describe("doStream simulated streaming", () => {
     })
 
     const { stream } = await model.doStream({
-      inputFormat: "prompt",
-      mode: { type: "regular" },
+
       prompt: TEST_PROMPT,
     })
 
@@ -1892,8 +1849,6 @@ describe("metadata extraction", () => {
           )
 
           const result = await model.doGenerate({
-            inputFormat: "prompt",
-            mode: { type: "regular" },
             prompt: TEST_PROMPT,
           })
 
@@ -1903,7 +1858,7 @@ describe("metadata extraction", () => {
             },
           })
 
-          const requestBody = await call(0).getRequestBodyJson()
+          const requestBody = await call(0).calls[0]?.requestBodyJson
           expect(requestBody).toStrictEqual({
             model: "qwen-plus",
             messages: [{ role: "user", content: "Hello" }],
@@ -1953,7 +1908,7 @@ describe("metadata extraction", () => {
             },
           })
 
-          const requestBody = await call(0).getRequestBodyJson()
+          const requestBody = await call(0).calls[0]?.requestBodyJson
           expect(requestBody).toStrictEqual({
             model: "qwen-plus",
             messages: [{ role: "user", content: "Hello" }],
