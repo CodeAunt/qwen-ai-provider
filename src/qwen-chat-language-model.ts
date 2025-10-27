@@ -433,6 +433,7 @@ export class QwenChatLanguageModel implements LanguageModelV2 {
         headers: responseHeaders,
       },
       request: { body },
+      warnings: [], // todo: support tool warnings
     }
   }
 
