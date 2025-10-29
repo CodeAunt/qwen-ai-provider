@@ -1,6 +1,6 @@
 /* eslint-disable array-callback-return */
 import type {
-  LanguageModelV1Prompt,
+  LanguageModelV2Prompt,
 } from "@ai-sdk/provider"
 import {
   InvalidPromptError,
@@ -8,10 +8,10 @@ import {
 } from "@ai-sdk/provider"
 
 /**
- * Converts a LanguageModelV1Prompt into a Qwen completion prompt.
+ * Converts a LanguageModelV2Prompt into a Qwen completion prompt.
  *
  * @param options - The configuration options
- * @param options.prompt - The input prompt in LanguageModelV1Prompt format
+ * @param options.prompt - The input prompt in LanguageModelV2Prompt format
  * @param options.inputFormat - Either "prompt" (raw text input) or "messages" (chat messages)
  * @param options.user - Label for user messages (default: "user")
  * @param options.assistant - Label for assistant messages (default: "assistant")
@@ -23,12 +23,12 @@ import {
  */
 export function convertToQwenCompletionPrompt({
   prompt,
-  inputFormat,
+  // inputFormat,
   user = "user",
   assistant = "assistant",
 }: {
-  prompt: LanguageModelV1Prompt
-  inputFormat: "prompt" | "messages"
+  prompt: LanguageModelV2Prompt
+  // inputFormat: "prompt" | "messages"
   user?: string
   assistant?: string
 }): {
@@ -37,8 +37,8 @@ export function convertToQwenCompletionPrompt({
 } {
   // If input is a straightforward prompt with one user message, return it directly.
   if (
-    inputFormat === "prompt"
-    && prompt.length === 1
+    // inputFormat === "prompt"
+    prompt.length === 1
     && prompt[0].role === "user"
     && prompt[0].content.length === 1
     && prompt[0].content[0].type === "text"
@@ -75,8 +75,8 @@ export function convertToQwenCompletionPrompt({
               case "text": {
                 return part.text
               }
-              case "image": {
-                // Images are not supported.
+              case "file": {
+                // todo: Files
                 throw new UnsupportedFunctionalityError({
                   functionality: "images",
                 })

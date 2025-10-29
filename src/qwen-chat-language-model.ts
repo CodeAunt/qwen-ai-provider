@@ -136,7 +136,9 @@ export class QwenChatLanguageModel implements LanguageModelV2 {
   private readonly failedResponseHandler: ResponseHandler<APICallError>
   private readonly chunkSchema // type inferred via constructor
   readonly supportedUrls: Record<string, RegExp[]> | PromiseLike<Record<string, RegExp[]>> = {
-    // todo
+    "*": [
+      /^https?:\/\/.*$/,
+    ],
   }
 
   /**
@@ -213,21 +215,21 @@ export class QwenChatLanguageModel implements LanguageModelV2 {
    */
   private getArgs(options: Parameters<LanguageModelV2["doGenerate"]>[0]) {
     const {
-      mode,
+      // mode,
       prompt,
       maxOutputTokens,
       temperature,
       topP,
       topK,
+      tools,
+      toolChoice,
       frequencyPenalty,
       presencePenalty,
       providerOptions,
       stopSequences,
       responseFormat,
       seed,
-    } = options as any
-    // Determine the type of generation mode.
-    const type = mode.type
+    } = options
 
     const warnings: LanguageModelV2CallWarning[] = []
 
@@ -288,68 +290,80 @@ export class QwenChatLanguageModel implements LanguageModelV2 {
       messages: convertToQwenChatMessages(prompt),
     }
 
-    // Handling various generation modes.
-    switch (type) {
-      case "regular": {
-        const { tools, tool_choice, toolWarnings } = prepareTools({
-          mode,
-          structuredOutputs: this.supportsStructuredOutputs,
-        })
+    // console.warn("********** baseArgs", JSON.stringify(baseArgs))
 
-        return {
-          args: { ...baseArgs, tools, tool_choice },
-          warnings: [...warnings, ...toolWarnings],
-        }
-      }
+    const { tools: _tools, toolChoice: _toolChoice, toolWarnings } = prepareTools({
+      tools,
+      toolChoice,
+    })
 
-      case "object-json": {
-        return {
-          args: {
-            ...baseArgs,
-            response_format:
-              this.supportsStructuredOutputs === true && mode.schema != null
-                ? {
-                    type: "json_schema",
-                    json_schema: {
-                      schema: mode.schema,
-                      name: mode.name ?? "response",
-                      description: mode.description,
-                    },
-                  }
-                : { type: "json_object" },
-          },
-          warnings,
-        }
-      }
-
-      case "object-tool": {
-        return {
-          args: {
-            ...baseArgs,
-            tool_choice: {
-              type: "function",
-              function: { name: mode.tool.name },
-            },
-            tools: [
-              {
-                type: "function",
-                function: {
-                  name: mode.tool.name,
-                  description: mode.tool.description,
-                  inputSchema: mode.tool.parameters,
-                },
-              },
-            ],
-          },
-          warnings,
-        }
-      }
-
-      default: {
-        const _exhaustiveCheck: never = type
-        throw new Error(`Unsupported type: ${_exhaustiveCheck}`)
-      }
+    return {
+      args: { ...baseArgs, tools: _tools, toolChoice: _toolChoice },
+      warnings: [...warnings, ...toolWarnings],
     }
+
+    // Handling various generation modes.
+    // switch (type) {
+    //   case "regular": {
+    //     const { tools, toolChoice, toolWarnings } = prepareTools({
+    //       tools,
+    //       toolChoice,
+    //     })
+
+    //     return {
+    //       args: { ...baseArgs, tools, toolChoice },
+    //       warnings: [...warnings, ...toolWarnings],
+    //     }
+    //   }
+
+    //   case "object-json": {
+    //     return {
+    //       args: {
+    //         ...baseArgs,
+    //         response_format:
+    //           this.supportsStructuredOutputs === true && mode.schema != null
+    //             ? {
+    //                 type: "json_schema",
+    //                 json_schema: {
+    //                   schema: mode.schema,
+    //                   name: mode.name ?? "response",
+    //                   description: mode.description,
+    //                 },
+    //               }
+    //             : { type: "json_object" },
+    //       },
+    //       warnings,
+    //     }
+    //   }
+
+    //   case "object-tool": {
+    //     return {
+    //       args: {
+    //         ...baseArgs,
+    //         tool_choice: {
+    //           type: "function",
+    //           function: { name: mode.tool.name },
+    //         },
+    //         tools: [
+    //           {
+    //             type: "function",
+    //             function: {
+    //               name: mode.tool.name,
+    //               description: mode.tool.description,
+    //               inputSchema: mode.tool.parameters,
+    //             },
+    //           },
+    //         ],
+    //       },
+    //       warnings,
+    //     }
+    //   }
+
+    //   default: {
+    //     const _exhaustiveCheck: never = type
+    //     throw new Error(`Unsupported type: ${_exhaustiveCheck}`)
+    //   }
+    // }
   }
 
   /**
@@ -364,76 +378,83 @@ export class QwenChatLanguageModel implements LanguageModelV2 {
 
     const body = JSON.stringify(args)
 
-    // Send request for generation using POST JSON.
-    const {
-      responseHeaders,
-      value: responseBody,
-      rawValue: parsedBody,
-    } = await postJsonToApi({
-      url: this.config.url({
-        path: "/chat/completions",
-        modelId: this.modelId,
-      }),
-      headers: combineHeaders(this.config.headers(), options.headers),
-      body: args,
-      failedResponseHandler: this.failedResponseHandler,
-      successfulResponseHandler: createJsonResponseHandler(
-        QwenChatResponseSchema,
-      ),
-      abortSignal: options.abortSignal,
-      fetch: this.config.fetch,
-    })
+    // console.warn("********** body", body)
 
-    // const { messages: rawPrompt } = args
-    const choice = responseBody.choices[0]
-    const providerMetadata = this.config.metadataExtractor?.extractMetadata?.({
-      parsedBody,
-    })
-
-    // Build content array
-    const content: Array<any> = []
-
-    if (choice.message.reasoning_content) {
-      content.push({
-        type: "text",
-        text: choice.message.reasoning_content,
+    try {
+      // Send request for generation using POST JSON.
+      const {
+        responseHeaders,
+        value: responseBody,
+        rawValue: parsedBody,
+      } = await postJsonToApi({
+        url: this.config.url({
+          path: "/chat/completions",
+          modelId: this.modelId,
+        }),
+        headers: combineHeaders(this.config.headers(), options.headers),
+        body: args,
+        failedResponseHandler: this.failedResponseHandler,
+        successfulResponseHandler: createJsonResponseHandler(
+          QwenChatResponseSchema,
+        ),
+        abortSignal: options.abortSignal,
+        fetch: this.config.fetch,
       })
-    }
 
-    if (choice.message.content) {
-      content.push({
-        type: "text",
-        text: choice.message.content,
+      // const { messages: rawPrompt } = args
+      const choice = responseBody.choices[0]
+      const providerMetadata = this.config.metadataExtractor?.extractMetadata?.({
+        parsedBody,
       })
-    }
 
-    if (choice.message.tool_calls) {
-      for (const toolCall of choice.message.tool_calls) {
+      // Build content array
+      const content: Array<any> = []
+
+      if (choice.message.reasoning_content) {
         content.push({
-          type: "tool-call",
-          toolCallId: toolCall.id ?? generateId(),
-          toolName: toolCall.function.name,
-          input: toolCall.function.arguments!,
+          type: "text",
+          text: choice.message.reasoning_content,
         })
       }
-    }
 
-    // Return structured generation details.
-    return {
-      content,
-      finishReason: mapQwenFinishReason(choice.finish_reason),
-      usage: {
-        inputTokens: responseBody.usage?.prompt_tokens ?? Number.NaN,
-        outputTokens: responseBody.usage?.completion_tokens ?? Number.NaN,
-        totalTokens: (responseBody.usage?.prompt_tokens ?? 0) + (responseBody.usage?.completion_tokens ?? 0),
-      },
-      ...(providerMetadata && { providerMetadata }),
-      response: {
-        ...getResponseMetadata(responseBody),
-        headers: responseHeaders,
-      },
-      request: { body },
-      warnings: [], // todo: support tool warnings
+      if (choice.message.content) {
+        content.push({
+          type: "text",
+          text: choice.message.content,
+        })
+      }
+
+      if (choice.message.tool_calls) {
+        for (const toolCall of choice.message.tool_calls) {
+          content.push({
+            type: "tool-call",
+            toolCallId: toolCall.id ?? generateId(),
+            toolName: toolCall.function.name,
+            input: toolCall.function.arguments!,
+          })
+        }
+      }
+
+      // Return structured generation details.
+      return {
+        content,
+        finishReason: mapQwenFinishReason(choice.finish_reason),
+        usage: {
+          inputTokens: responseBody.usage?.prompt_tokens ?? Number.NaN,
+          outputTokens: responseBody.usage?.completion_tokens ?? Number.NaN,
+          totalTokens: (responseBody.usage?.prompt_tokens ?? 0) + (responseBody.usage?.completion_tokens ?? 0),
+        },
+        ...(providerMetadata && { providerMetadata }),
+        response: {
+          ...getResponseMetadata(responseBody),
+          headers: responseHeaders,
+        },
+        request: { body },
+        warnings: [], // todo: support tool warnings
+      }
+    }
+    catch (error) {
+      throw new Error(`Failed to generate response: ${error}`)
     }
   }
 

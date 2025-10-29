@@ -1,6 +1,8 @@
 import type {
-  LanguageModelV1,
-  LanguageModelV1CallWarning,
+  LanguageModelV2CallWarning,
+  LanguageModelV2FunctionTool,
+  LanguageModelV2ProviderDefinedTool,
+  LanguageModelV2ToolChoice,
 } from "@ai-sdk/provider"
 import {
   UnsupportedFunctionalityError,
@@ -12,12 +14,11 @@ import {
  * @returns An object with tools, tool choice and any warnings.
  */
 export function prepareTools({
-  mode,
+  tools,
+  toolChoice,
 }: {
-  mode: Parameters<LanguageModelV1["doGenerate"]>[0]["mode"] & {
-    type: "regular"
-  }
-  structuredOutputs: boolean
+  tools?: Array<LanguageModelV2FunctionTool | LanguageModelV2ProviderDefinedTool>
+  toolChoice?: LanguageModelV2ToolChoice
 }): {
   tools:
     | undefined
@@ -26,32 +27,30 @@ export function prepareTools({
       function: {
         name: string
         description: string | undefined
-        parameters: unknown
+        inputSchema: unknown
       }
     }>
-  tool_choice:
+  toolChoice:
     | { type: "function", function: { name: string } }
     | "auto"
     | "none"
     | "required"
     | undefined
-  toolWarnings: LanguageModelV1CallWarning[]
+  toolWarnings: LanguageModelV2CallWarning[]
 } {
   // Normalize tools array by converting empty array to undefined.
-  const tools = mode.tools?.length ? mode.tools : undefined
-  const toolWarnings: LanguageModelV1CallWarning[] = []
+  const toolWarnings: LanguageModelV2CallWarning[] = []
 
-  if (tools == null) {
-    return { tools: undefined, tool_choice: undefined, toolWarnings }
+  if (!tools?.length) {
+    return { tools: undefined, toolChoice: undefined, toolWarnings }
   }
 
-  const toolChoice = mode.toolChoice
   const qwenCompatTools: Array<{
     type: "function"
     function: {
       name: string
       description: string | undefined
-      parameters: unknown
+      inputSchema: unknown
     }
   }> = []
 
@@ -67,14 +66,14 @@ export function prepareTools({
         function: {
           name: tool.name,
           description: tool.description,
-          inputSchema: tool.parameters,
+          inputSchema: tool.inputSchema,
         },
       })
     }
   }
 
   if (toolChoice == null) {
-    return { tools: qwenCompatTools, tool_choice: undefined, toolWarnings }
+    return { tools: qwenCompatTools, toolChoice: undefined, toolWarnings }
   }
 
   const type = toolChoice.type
@@ -84,11 +83,11 @@ export function prepareTools({
     case "auto":
     case "none":
     case "required":
-      return { tools: qwenCompatTools, tool_choice: type, toolWarnings }
+      return { tools: qwenCompatTools, toolChoice: type, toolWarnings }
     case "tool":
       return {
         tools: qwenCompatTools,
-        tool_choice: {
+        toolChoice: {
           type: "function",
           function: {
             name: toolChoice.toolName,

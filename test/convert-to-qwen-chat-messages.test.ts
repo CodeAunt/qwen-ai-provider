@@ -12,7 +12,7 @@ describe("user messages", () => {
       },
     ])
 
-    expect(result).toEqual([{ role: "user", content: "Hello" }])
+    expect(result).toEqual([{ role: "user", content: [{ type: "text", text: "Hello" }] }])
   })
 
   it("should convert messages with image parts", async () => {
@@ -20,7 +20,7 @@ describe("user messages", () => {
       {
         role: "user",
         content: [
-          { type: "text", text: "Hello" },
+          [{ type: "text", text: "Hello" }],
           {
             type: "file",
             data: new Uint8Array([0, 1, 2, 3]),
@@ -34,7 +34,7 @@ describe("user messages", () => {
       {
         role: "user",
         content: [
-          { type: "text", text: "Hello" },
+          [{ type: "text", text: "Hello" }],
           {
             type: "image_url",
             image_url: { url: "data:image/png;base64,AAECAw==" },
@@ -167,7 +167,7 @@ describe("provider-specific metadata merging", () => {
     expect(result).toEqual([
       {
         role: "user",
-        content: "Hello",
+        content: [{ type: "text", text: "Hello" }],
         cacheControl: { type: "ephemeral" },
       },
     ])
@@ -199,7 +199,7 @@ describe("provider-specific metadata merging", () => {
     expect(result).toEqual([
       {
         role: "user",
-        content: "Hello",
+        content: [{ type: "text", text: "Hello" }],
         contentLevel: true,
       },
     ])
@@ -282,7 +282,7 @@ describe("provider-specific metadata merging", () => {
     const result = convertToQwenChatMessages([
       {
         role: "system",
-        content: "Hello",
+        content: [{ type: "text", text: "Hello" }],
         providerOptions: {
           someOtherProvider: {
             shouldBeIgnored: true,
@@ -294,7 +294,7 @@ describe("provider-specific metadata merging", () => {
     expect(result).toEqual([
       {
         role: "system",
-        content: "Hello",
+        content: [{ type: "text", text: "Hello" }],
       },
     ])
   })

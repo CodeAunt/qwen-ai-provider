@@ -101,7 +101,7 @@ export interface QwenProviderSettings {
 export function createQwen(options: QwenProviderSettings = {}): QwenProvider {
   // Remove trailing slash from the base URL.
   const baseURL = withoutTrailingSlash(
-    options.baseURL ?? "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+    options.baseURL ?? "https://dashscope.aliyuncs.com/compatible-mode/v1",
   )
 
   // Build headers including the API key.

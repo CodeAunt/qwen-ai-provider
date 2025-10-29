@@ -36,7 +36,7 @@
   },
   "scripts": {
     "build": "tsup",
-    "dev": "tsup -d --watch",
+    "dev": "tsup --watch",
     "lint": "eslint \"./**/*.ts*\"",
     "test": "pnpm test:node && pnpm test:edge",
     "test:edge": "vitest --config vitest.edge.config.mjs --run",

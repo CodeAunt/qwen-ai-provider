@@ -50,7 +50,11 @@ const QwenCompletionResponseSchema = z.object({
   model: z.string().nullish(),
   choices: z.array(
     z.object({
-      text: z.string(),
+      // text: z.string(),
+      delta: z.object({
+        content: z.string(),
+        role: z.string(),
+      }).nullish(),
       finish_reason: z.string(),
     }),
   ),
@@ -79,6 +83,9 @@ implements LanguageModelV2 {
   private readonly config: QwenCompletionConfig
   private readonly failedResponseHandler: ResponseHandler<APICallError>
   private readonly chunkSchema // type inferred via constructor
+  readonly supportedUrls: Record<string, RegExp[]> | PromiseLike<Record<string, RegExp[]>> = {
+    // todo
+  }
 
   /**
    * Creates an instance of QwenCompletionLanguageModel.
@@ -98,7 +105,7 @@ implements LanguageModelV2 {
 
     // Initialize error handling schema and response handler.
     const errorStructure
-        = config.errorStructure ?? defaultQwenErrorStructure
+      = config.errorStructure ?? defaultQwenErrorStructure
     this.chunkSchema = createQwenCompletionChunkSchema(
       errorStructure.errorSchema,
     )
@@ -146,8 +153,6 @@ implements LanguageModelV2 {
    */
   private getArgs(options: Parameters<LanguageModelV2["doGenerate"]>[0]) {
     const {
-      mode,
-      inputFormat,
       prompt,
       maxOutputTokens,
       temperature,
@@ -159,8 +164,9 @@ implements LanguageModelV2 {
       responseFormat,
       seed,
       providerOptions,
-    } = options as any
-    const type = mode.type
+      tools,
+      toolChoice,
+    } = options
 
     const warnings: LanguageModelV2CallWarning[] = []
 
@@ -181,8 +187,9 @@ implements LanguageModelV2 {
     }
 
     // Convert prompt to Qwen-specific prompt info.
-    const { prompt: completionPrompt, stopSequences }
-        = convertToQwenCompletionPrompt({ prompt, inputFormat })
+    const { prompt: _completionPrompt, stopSequences }
+      = convertToQwenCompletionPrompt({ prompt })
+    const completionPrompt = prompt
 
     const stop = [...(stopSequences ?? []), ...(userStopSequences ?? [])]
 
@@ -202,45 +209,27 @@ implements LanguageModelV2 {
       seed,
       ...providerOptions?.[this.providerOptionsName],
       // Prompt and stop sequences:
-      prompt: completionPrompt,
+      messages: completionPrompt,
       stop: stop.length > 0 ? stop : undefined,
     }
 
-    switch (type) {
-      case "regular": {
-        // Tools are not supported in "regular" mode.
-        if (mode.tools?.length) {
-          throw new UnsupportedFunctionalityError({
-            functionality: "tools",
-          })
-        }
-
-        if (mode.toolChoice) {
-          throw new UnsupportedFunctionalityError({
-            functionality: "toolChoice",
-          })
-        }
-
-        return { args: baseArgs, warnings }
-      }
-
-      case "object-json": {
-        throw new UnsupportedFunctionalityError({
-          functionality: "object-json mode",
-        })
-      }
-
-      case "object-tool": {
-        throw new UnsupportedFunctionalityError({
-          functionality: "object-tool mode",
-        })
-      }
-
-      default: {
-        const _exhaustiveCheck: never = type
-        throw new Error(`Unsupported type: ${_exhaustiveCheck}`)
-      }
+    if (tools?.length) {
+      warnings.push({ type: "unsupported-setting", setting: "tools" })
     }
+
+    if (toolChoice) {
+      warnings.push({ type: "unsupported-setting", setting: "toolChoice" })
+    }
+
+    if (responseFormat != null && responseFormat.type !== "text") {
+      warnings.push({
+        type: "unsupported-setting",
+        setting: "responseFormat",
+        details: "JSON response format is not supported.",
+      })
+    }
+
+    return { args: baseArgs, warnings }
   }
 
   /**
@@ -271,12 +260,14 @@ implements LanguageModelV2 {
 
     const choice = response.choices[0]
 
+    // console.warn("********** choice", JSON.stringify(choice, null, 2))
+
     // Build content array
     const content: Array<{ type: "text", text: string }> = []
-    if (choice.text) {
+    if (choice.delta?.content) {
       content.push({
         type: "text",
-        text: choice.text,
+        text: choice.delta.content,
       })
     }
 
@@ -298,7 +289,7 @@ implements LanguageModelV2 {
         headers: responseHeaders,
       },
       request: { body: JSON.stringify(args) },
-      warnings: [] // todo: support tool warnings
+      warnings: [], // todo: support tool warnings
     }
   }
 
@@ -312,6 +303,7 @@ implements LanguageModelV2 {
     options: Parameters<LanguageModelV2["doStream"]>[0],
   ): Promise<Awaited<ReturnType<LanguageModelV2["doStream"]>>> {
     const { args } = this.getArgs(options)
+    // console.warn("********** args", JSON.stringify(args))
 
     const body = {
       ...args,
@@ -371,6 +363,11 @@ implements LanguageModelV2 {
                 type: "response-metadata",
                 ...getResponseMetadata(value),
               })
+
+              controller.enqueue({
+                type: "text-start",
+                id: value.id,
+              })
             }
 
             if (value.usage != null) {
@@ -381,19 +378,25 @@ implements LanguageModelV2 {
             }
 
             const choice = value.choices[0]
+            // console.warn("********** choice", JSON.stringify(choice, null, 2))
 
             if (choice?.finish_reason != null) {
               finishReason = mapQwenFinishReason(
                 choice.finish_reason,
               )
+
+              controller.enqueue({
+                type: "text-end",
+                id: value.id,
+              })
             }
 
-            if (choice?.text != null) {
+            if (choice?.delta.content != null) {
               // Enqueue text delta for streaming.
               controller.enqueue({
                 type: "text-delta",
-                id: "text",
-                delta: choice.text,
+                id: value.id,
+                delta: choice.delta.content,
               })
             }
           },
@@ -438,9 +441,13 @@ function createQwenCompletionChunkSchema<
       model: z.string().nullish(),
       choices: z.array(
         z.object({
-          text: z.string(),
+          // text: z.string(),
           finish_reason: z.string().nullish(),
           index: z.number(),
+          delta: z.object({
+            content: z.string().nullish(),
+            role: z.enum(["assistant", "user", "system"]).nullish(),
+          }).nullish(),
         }),
       ),
       usage: z

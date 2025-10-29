@@ -1,5 +1,5 @@
 /* eslint-disable dot-notation */
-import type { LanguageModelV2Prompt } from "@ai-sdk/provider"
+import type { LanguageModelV2Prompt, LanguageModelV2StreamPart } from "@ai-sdk/provider"
 import {
   convertReadableStreamToArray,
   createTestServer,
@@ -121,13 +121,14 @@ describe("doGenerate", () => {
   it("should extract text response", async () => {
     prepareJsonResponse({ content: "Hello, World!" })
 
-    const { text } = await model.doGenerate({
-      inputFormat: "prompt",
-      mode: { type: "regular" },
+    const { content } = await model.doGenerate({
       prompt: TEST_PROMPT,
     })
 
-    expect(text).toStrictEqual("Hello, World!")
+    expect(content[0]).toStrictEqual({
+      type: "text",
+      text: "Hello, World!",
+    })
   })
 
   it("should extract usage", async () => {
@@ -137,14 +138,13 @@ describe("doGenerate", () => {
     })
 
     const { usage } = await model.doGenerate({
-      inputFormat: "prompt",
-      mode: { type: "regular" },
       prompt: TEST_PROMPT,
     })
 
     expect(usage).toStrictEqual({
       inputTokens: 20,
       outputTokens: 5,
+      totalTokens: 25,
     })
   })
 
@@ -152,13 +152,11 @@ describe("doGenerate", () => {
     prepareJsonResponse({})
 
     const { request } = await model.doGenerate({
-      inputFormat: "prompt",
-      mode: { type: "regular" },
       prompt: TEST_PROMPT,
     })
 
     expect(request).toStrictEqual({
-      body: "{\"model\":\"qwen-plus\",\"prompt\":\"Hello\"}",
+      body: "{\"model\":\"qwen-plus\",\"messages\":[{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"Hello\"}]}]}",
     })
   })
 
@@ -170,12 +168,14 @@ describe("doGenerate", () => {
     })
 
     const { response } = await model.doGenerate({
-      inputFormat: "prompt",
-      mode: { type: "regular" },
       prompt: TEST_PROMPT,
     })
 
     expect(response).toStrictEqual({
+      headers: {
+        "content-length": "204",
+        "content-type": "application/json",
+      },
       id: "test-id",
       timestamp: new Date(123 * 1000),
       modelId: "test-model",
@@ -191,8 +191,6 @@ describe("doGenerate", () => {
     const { finishReason } = await provider
       .completion("qwen-plus")
       .doGenerate({
-        inputFormat: "prompt",
-        mode: { type: "regular" },
         prompt: TEST_PROMPT,
       })
 
@@ -208,8 +206,6 @@ describe("doGenerate", () => {
     const { finishReason } = await provider
       .completion("qwen-plus")
       .doGenerate({
-        inputFormat: "prompt",
-        mode: { type: "regular" },
         prompt: TEST_PROMPT,
       })
 
@@ -217,15 +213,32 @@ describe("doGenerate", () => {
   })
 
   it("should expose the raw response headers", async () => {
-    prepareJsonResponse({ content: "" })
-
-    server.responseHeaders = {
-      "test-header": "test-value",
+    server.urls["https://my.api.com/v1/completions"].response = {
+      type: "json-value",
+      headers: {
+        "test-header": "test-value",
+      },
+      body: {
+        id: "cmpl-96cAM1v77r4jXa4qb2NSmRREV5oWB",
+        object: "text_completion",
+        created: 1711363706,
+        model: "qwen-plus",
+        choices: [
+          {
+            text: "",
+            index: 0,
+            finish_reason: "stop",
+          },
+        ],
+        usage: {
+          prompt_tokens: 4,
+          total_tokens: 34,
+          completion_tokens: 30,
+        },
+      },
     }
 
     const { response } = await model.doGenerate({
-      inputFormat: "prompt",
-      mode: { type: "regular" },
       prompt: TEST_PROMPT,
     })
 
@@ -243,14 +256,12 @@ describe("doGenerate", () => {
     prepareJsonResponse({ content: "" })
 
     await model.doGenerate({
-      inputFormat: "prompt",
-      mode: { type: "regular" },
       prompt: TEST_PROMPT,
     })
 
-    expect(await server.getRequestBodyJson()).toStrictEqual({
+    expect(await server.calls[0]?.requestBodyJson).toStrictEqual({
       model: "qwen-plus",
-      prompt: "Hello",
+      messages: [{ role: "user", content: [{ type: "text", text: "Hello" }] }],
     })
   })
 
@@ -266,15 +277,13 @@ describe("doGenerate", () => {
     })
 
     await provider.completion("qwen-plus").doGenerate({
-      inputFormat: "prompt",
-      mode: { type: "regular" },
       prompt: TEST_PROMPT,
       headers: {
         "Custom-Request-Header": "request-header-value",
       },
     })
 
-    const requestHeaders = await server.getRequestHeaders()
+    const requestHeaders = server.calls[0]?.requestHeaders
 
     expect(requestHeaders).toStrictEqual({
       "authorization": "Bearer test-api-key",
@@ -288,8 +297,6 @@ describe("doGenerate", () => {
     prepareJsonResponse({ content: "" })
 
     await provider.completion("qwen-plus").doGenerate({
-      inputFormat: "prompt",
-      mode: { type: "regular" },
       prompt: TEST_PROMPT,
       providerOptions: {
         "test-provider": {
@@ -298,9 +305,9 @@ describe("doGenerate", () => {
       },
     })
 
-    expect(await server.getRequestBodyJson()).toStrictEqual({
+    expect(await server.calls[0]?.requestBodyJson).toStrictEqual({
       model: "qwen-plus",
-      prompt: "Hello",
+      messages: [{ role: "user", content: [{ type: "text", text: "Hello" }] }],
     })
   })
 
@@ -308,8 +315,6 @@ describe("doGenerate", () => {
     prepareJsonResponse({ content: "" })
 
     await provider.completion("qwen-plus").doGenerate({
-      inputFormat: "prompt",
-      mode: { type: "regular" },
       prompt: TEST_PROMPT,
       providerOptions: {
         notThisProviderName: {
@@ -318,9 +323,9 @@ describe("doGenerate", () => {
       },
     })
 
-    expect(await server.getRequestBodyJson()).toStrictEqual({
+    expect(await server.calls[0]?.requestBodyJson).toStrictEqual({
       model: "qwen-plus",
-      prompt: "Hello",
+      messages: [{ role: "user", content: [{ type: "text", text: "Hello" }] }],
     })
   })
 })
@@ -383,8 +388,6 @@ describe("doStream", () => {
     })
 
     const { stream } = await model.doStream({
-      inputFormat: "prompt",
-      mode: { type: "regular" },
       prompt: TEST_PROMPT,
     })
 
@@ -396,28 +399,29 @@ describe("doStream", () => {
         timestamp: new Date("2024-03-25T10:44:00.000Z"),
         type: "response-metadata",
       },
-      { type: "text-delta", textDelta: "Hello" },
-      { type: "text-delta", textDelta: ", " },
-      { type: "text-delta", textDelta: "World!" },
-      { type: "text-delta", textDelta: "" },
+      { type: "text-start", id: "text", delta: "Hello" },
+      { type: "text-delta", id: "text", delta: ", " },
+      { type: "text-delta", id: "text", delta: "World!" },
+      { type: "text-end", id: "text", delta: "" },
       {
         type: "finish",
         finishReason: "stop",
-        usage: { inputTokens: 10, outputTokens: 362 },
+        usage: { inputTokens: 10, outputTokens: 362, totalTokens: 372 },
       },
     ])
   })
 
   it("should handle unparsable stream parts", async () => {
-    server.responseChunks = [`data: {unparsable}\n\n`, "data: [DONE]\n\n"]
+    streamServer.urls["https://my.api.com/v1/completions"].response = {
+      type: "stream-chunks",
+      chunks: [`data: {unparsable}\n\n`, "data: [DONE]\n\n"],
+    }
 
     const { stream } = await model.doStream({
-      inputFormat: "prompt",
-      mode: { type: "regular" },
       prompt: TEST_PROMPT,
     })
 
-    const elements = await convertReadableStreamToArray(stream)
+    const elements = await convertReadableStreamToArray<LanguageModelV2StreamPart>(stream)
 
     expect(elements.length).toBe(2)
     expect(elements[0].type).toBe("error")
@@ -427,6 +431,7 @@ describe("doStream", () => {
       usage: {
         outputTokens: Number.NaN,
         inputTokens: Number.NaN,
+        totalTokens: Number.NaN,
       },
     })
   })
@@ -435,27 +440,27 @@ describe("doStream", () => {
     prepareStreamResponse({ content: [] })
 
     const { request: _request } = await model.doStream({
-      inputFormat: "prompt",
-      mode: { type: "regular" },
       prompt: TEST_PROMPT,
     })
 
     expect(_request).toStrictEqual({
       // body: '{"model":"qwen-plus","prompt":"Hello","stream":true,"stream_options":{"include_usage":true}}',
-      body: "{\"model\":\"qwen-plus\",\"prompt\":\"Hello\",\"stream\":true}",
+      body: "{\"model\":\"qwen-plus\",\"messages\":[{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"Hello\"}]}],\"stream\":true}",
     })
   })
 
   it("should expose the raw response headers", async () => {
-    prepareStreamResponse({ content: [] })
-
-    server.responseHeaders = {
-      "test-header": "test-value",
+    streamServer.urls["https://my.api.com/v1/completions"].response = {
+      type: "stream-chunks",
+      headers: {
+        "test-header": "test-value",
+      },
+      chunks: [
+        "data: [DONE]\n\n",
+      ],
     }
 
     const { response } = await model.doStream({
-      inputFormat: "prompt",
-      mode: { type: "regular" },
       prompt: TEST_PROMPT,
     })
 
@@ -474,16 +479,14 @@ describe("doStream", () => {
     prepareStreamResponse({ content: [] })
 
     await model.doStream({
-      inputFormat: "prompt",
-      mode: { type: "regular" },
       prompt: TEST_PROMPT,
     })
 
-    expect(await server.getRequestBodyJson()).toStrictEqual({
+    expect(await streamServer.calls[0]?.requestBodyJson).toStrictEqual({
       stream: true,
       // stream_options: { include_usage: true },
       model: "qwen-plus",
-      prompt: "Hello",
+      messages: [{ role: "user", content: [{ type: "text", text: "Hello" }] }],
     })
   })
 
@@ -499,15 +502,13 @@ describe("doStream", () => {
     })
 
     await provider.completion("qwen-plus").doStream({
-      inputFormat: "prompt",
-      mode: { type: "regular" },
       prompt: TEST_PROMPT,
       headers: {
         "Custom-Request-Header": "request-header-value",
       },
     })
 
-    const requestHeaders = await server.getRequestHeaders()
+    const requestHeaders = streamServer.calls[0]?.requestHeaders
 
     expect(requestHeaders).toStrictEqual({
       "authorization": "Bearer test-api-key",
@@ -521,8 +522,6 @@ describe("doStream", () => {
     prepareStreamResponse({ content: [] })
 
     const { request: _request } = await model.doStream({
-      inputFormat: "prompt",
-      mode: { type: "regular" },
       providerOptions: {
         "test-provider": {
           someCustomOption: "test-value",
@@ -531,10 +530,10 @@ describe("doStream", () => {
       prompt: TEST_PROMPT,
     })
 
-    expect(await server.getRequestBodyJson()).toStrictEqual({
+    expect(await streamServer.calls[0]?.requestBodyJson).toStrictEqual({
       stream: true,
       model: "qwen-plus",
-      prompt: "Hello",
+      messages: [{ role: "user", content: [{ type: "text", text: "Hello" }] }],
     })
   })
 
@@ -542,8 +541,6 @@ describe("doStream", () => {
     prepareStreamResponse({ content: [] })
 
     const { request: _request } = await model.doStream({
-      inputFormat: "prompt",
-      mode: { type: "regular" },
       providerOptions: {
         notThisProviderName: {
           someCustomOption: "test-value",
@@ -552,10 +549,10 @@ describe("doStream", () => {
       prompt: TEST_PROMPT,
     })
 
-    expect(await server.getRequestBodyJson()).toStrictEqual({
+    expect(await streamServer.calls[0]?.requestBodyJson).toStrictEqual({
       stream: true,
       model: "qwen-plus",
-      prompt: "Hello",
+      messages: [{ role: "user", content: [{ type: "text", text: "Hello" }] }],
     })
   })
 })
